@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Urticare",
+    "slug": "urticare",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "userInterfaceStyle": "dark"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

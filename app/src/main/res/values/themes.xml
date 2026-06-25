@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.Urticare20" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/white</item>
+        <item name="android:windowSplashScreenBackground" xmlns:tools="http://schemas.android.com/tools" tools:targetApi="s">@color/white</item>
+    </style>
+</resources>
