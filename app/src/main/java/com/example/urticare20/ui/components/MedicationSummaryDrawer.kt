@@ -72,6 +72,24 @@ fun MedicationSummaryDrawer(viewModel: TrackerViewModel, entries: List<com.examp
         }
     }
 
+    val highMedicationUsageOccurrences = remember(entries, targetYear, targetMonth) {
+        val countsByDay = mutableMapOf<String, Int>()
+        entries.forEach { entry ->
+            if (entry.type == EntryType.ANTIHISTAMINE) {
+                try {
+                    val t = ZonedDateTime.parse(entry.timestamp)
+                    if (t.year == targetYear && t.monthValue == targetMonth) {
+                        val dayKey = "${t.year}-${t.monthValue}-${t.dayOfMonth}"
+                        countsByDay[dayKey] = (countsByDay[dayKey] ?: 0) + 1
+                    }
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
+        }
+        countsByDay.values.count { it > 2 }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -213,6 +231,9 @@ fun MedicationSummaryDrawer(viewModel: TrackerViewModel, entries: List<com.examp
                         MonthlySummaryRow(color = SoftYellow, label = "Antihistamines Taken", count = monthlyAH, unit = if (monthlyAH == 1) "pill" else "pills", countColor = SoftYellow)
                         MonthlySummaryRow(color = Color(0xFF1A7E97), label = "Corticosteroids", count = monthlyCortisone, unit = if (monthlyCortisone == 1) "dose" else "doses", countColor = Color(0xFF1A7E97))
                         MonthlySummaryRow(color = CoralPink, label = "Symptom Flare-ups", count = monthlyFlare, unit = if (monthlyFlare == 1) "event" else "events", countColor = SoftPurple)
+                        if (highMedicationUsageOccurrences > 0) {
+                            MonthlySummaryRow(color = Color(0xFFFAA18F), label = "High Medication Usage", count = highMedicationUsageOccurrences, unit = "occurances", countColor = Color(0xFFFAA18F))
+                        }
                     }
                 }
             }

@@ -53,10 +53,7 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
     val context = LocalContext.current
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = Pill, 1 = Flare Up, 2 = Xolair
 
-    // State for alternative inputs expander
-    var showAlternativeForm by remember { mutableStateOf(false) }
-    var altName by remember { mutableStateOf("") }
-    var altMg by remember { mutableStateOf("") }
+    
 
     // State for manual entry dialog pill choice
     var showPillChoiceDialog by remember { mutableStateOf(false) }
@@ -67,6 +64,14 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
     val antihistamines by viewModel.profileAntihistamines.collectAsState()
     val profileCortisones by viewModel.profileCortisones.collectAsState()
 
+    val profileOnXolairState by viewModel.profileOnXolair.collectAsState()
+    val profileBiologicalMedicationState by viewModel.profileBiologicalMedication.collectAsState()
+    val profileBiologicalMgState by viewModel.profileBiologicalMg.collectAsState()
+
+    val isCustomBiologicalActive = profileOnXolairState &&
+            profileBiologicalMedicationState.trim().isNotEmpty() &&
+            profileBiologicalMgState.trim().isNotEmpty()
+
     var editingEntry by remember { mutableStateOf<LogEntry?>(null) }
     var editTimestamp by remember { mutableStateOf("") }
     var editMedName by remember { mutableStateOf("") }
@@ -75,7 +80,14 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
     val collapsedFlareUps = remember { mutableStateListOf<String>() }
 
     var showFlareUpManualDialog by remember { mutableStateOf(false) }
+    var isManualAngioedemaOnlySelected by remember { mutableStateOf(false) }
     val selectedManualReasons = remember { mutableStateListOf<String>() }
+    val editMedicineOtherNameText = remember { mutableStateOf("") }
+    val editMedicineOtherCauseText = remember { mutableStateOf("") }
+    val editInsectText = remember { mutableStateOf("") }
+    val manualMedicineOtherNameText = remember { mutableStateOf("") }
+    val manualMedicineOtherCauseText = remember { mutableStateOf("") }
+    val manualInsectText = remember { mutableStateOf("") }
     val selectedEditReasons = remember { mutableStateListOf<String>() }
     val editVegetablesText = remember { mutableStateOf("") }
     val editFruitsText = remember { mutableStateOf("") }
@@ -91,6 +103,7 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
     var isManualAngioNoSelected by remember { mutableStateOf(true) }
     var isEditAngioYesSelected by remember { mutableStateOf(false) }
     var isEditAngioNoSelected by remember { mutableStateOf(true) }
+    var isEditAngioedemaOnlySelected by remember { mutableStateOf(false) }
 
     var showAntihistamineManualDialog by remember { mutableStateOf(false) }
     var showCortisoneManualDialog by remember { mutableStateOf(false) }
@@ -103,6 +116,7 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
     var selectedManualIndex by remember { mutableIntStateOf(-1) }
     var showApdExplanationDialog by remember { mutableStateOf(false) }
     var showMilestonesExpanded by remember { mutableStateOf(false) }
+    var showResetConfirmDialog by remember { mutableStateOf(false) }
 
     // Active tab-specific color schemes
     val themeColor = when (selectedTab) {
@@ -382,10 +396,14 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
         editIllnessText.value = ""
         editVegetablesText.value = ""
         editFruitsText.value = ""
+        editMedicineOtherNameText.value = ""
+        editMedicineOtherCauseText.value = ""
+        editInsectText.value = ""
         if (item.type == EntryType.FLARE_UP) {
             val metadataStr = item.metadata ?: ""
             isEditSevereSelected = metadataStr.contains("Severity: Severe")
             isEditMildSelected = !isEditSevereSelected
+            isEditAngioedemaOnlySelected = metadataStr.contains("Title: Angioedema")
             isEditAngioYesSelected = metadataStr.contains("Angioedema: Yes")
             isEditAngioNoSelected = !isEditAngioYesSelected
             if (metadataStr.isNotEmpty()) {
@@ -413,6 +431,21 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
                         r.startsWith("Fruit: Other:") -> {
                             selectedEditReasons.add("Fruit: Other")
                             editFruitsText.value = r.removePrefix("Fruit: Other:").trim()
+                        }
+                        r.startsWith("Medicine : Other:") -> {
+                            selectedEditReasons.add("Medicine : Other")
+                            val valPart = r.removePrefix("Medicine : Other:").trim()
+                            if (valPart.contains(" (Cause: ")) {
+                                val splitIdx = valPart.indexOf(" (Cause: ")
+                                editMedicineOtherNameText.value = valPart.substring(0, splitIdx).trim()
+                                editMedicineOtherCauseText.value = valPart.substring(splitIdx + " (Cause: ".length).removeSuffix(")").trim()
+                            } else {
+                                editMedicineOtherNameText.value = valPart
+                            }
+                        }
+                        r.startsWith("Insect Bite/Sting:") -> {
+                            selectedEditReasons.add("Insect Bite/Sting")
+                            editInsectText.value = r.removePrefix("Insect Bite/Sting:").trim()
                         }
                         else -> selectedEditReasons.add(r)
                     }
@@ -728,7 +761,7 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
                 .padding(1.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            val tabs = listOf("Pills Log", "Flare Up Log", "Xolair (alt)")
+            val tabs = listOf("Pills Log", "Flare Up Log", "Bio. Med.")
             tabs.forEachIndexed { index, label ->
                 val isActive = selectedTab == index
                 val tabBg = when {
@@ -748,7 +781,6 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
                 Card(
                     onClick = { 
                         selectedTab = index 
-                        showAlternativeForm = false // Reset alternative form on tab switch
                     },
                     modifier = Modifier
                         .weight(1f)
@@ -821,10 +853,14 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
                                 manualIllnessText.value = ""
                                 manualVegetablesText.value = ""
                                 manualFruitsText.value = ""
+                                manualMedicineOtherNameText.value = ""
+                                manualMedicineOtherCauseText.value = ""
+                                manualInsectText.value = ""
                                 isManualMildSelected = true
                                 isManualSevereSelected = false
                                 isManualAngioYesSelected = false
                                 isManualAngioNoSelected = true
+                                isManualAngioedemaOnlySelected = false
                                 showFlareUpManualDialog = true
                             }
                             0 -> {
@@ -860,12 +896,7 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
             // 3. Reset Log Button
             Button(
                 onClick = {
-                    when (selectedTab) {
-                        0 -> viewModel.clearAllEntriesOfTypes(listOf(EntryType.ANTIHISTAMINE, EntryType.CORTISONE))
-                        1 -> viewModel.clearAllEntriesOfTypes(listOf(EntryType.FLARE_UP))
-                        2 -> viewModel.clearAllEntriesOfTypes(listOf(EntryType.XOLAIR_150, EntryType.XOLAIR_300, EntryType.ALTERNATIVE))
-                    }
-                    Toast.makeText(context, "Log cleared successfully.", Toast.LENGTH_SHORT).show()
+                    showResetConfirmDialog = true
                 },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = AlertRed, contentColor = Color.White),
@@ -876,148 +907,92 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
             }
         }
 
-        // Sub-panel for Xolair and Alternatives Log tab
+        // Sub-panel for Biological Medication Log tab
         if (selectedTab == 2) {
             Spacer(modifier = Modifier.height(14.dp))
             
-            // Xolair quick actions row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                CircularPillButton(
-                    label = "Xolair 150 mg",
-                    color = PastelIceBlue,
-                    onClick = {
-                        viewModel.addEntry(EntryType.XOLAIR_150, ZonedDateTime.now().toString(), "150 mg")
-                        Toast.makeText(context, "Xolair 150 mg logged", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-
-                CircularPillButton(
-                    label = "Xolair 300 mg",
-                    color = PastelIceBlue,
-                    onClick = {
-                        viewModel.addEntry(EntryType.XOLAIR_300, ZonedDateTime.now().toString(), "300 mg")
-                        Toast.makeText(context, "Xolair 300 mg logged", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-
-                CircularPillButton(
-                    label = "Alternative",
-                    color = PastelIceBlue,
-                    onClick = { showAlternativeForm = !showAlternativeForm },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            // Expandable Alternative Custom inputs card
-            AnimatedVisibility(visible = showAlternativeForm) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
-                    border = BorderStroke(1.dp, PastelIceBlue.copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(text = "Add Custom Alternative medication:", color = PastelIceBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        TextField(
-                            value = altName,
-                            onValueChange = { altName = it },
-                            placeholder = { Text("Alternative Medication Name", color = MutedGray, fontSize = 11.sp) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = AmoledBlack,
-                                unfocusedContainerColor = AmoledBlack,
-                                focusedTextColor = LightGray,
-                                unfocusedTextColor = LightGray,
-                                focusedIndicatorColor = DarkBorder,
-                                unfocusedIndicatorColor = DarkBorder
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        TextField(
-                            value = altMg,
-                            onValueChange = { altMg = it },
-                            placeholder = { Text("Milligram Dosage (Mg)", color = MutedGray, fontSize = 11.sp) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = AmoledBlack,
-                                unfocusedContainerColor = AmoledBlack,
-                                focusedTextColor = LightGray,
-                                unfocusedTextColor = LightGray,
-                                focusedIndicatorColor = DarkBorder,
-                                unfocusedIndicatorColor = DarkBorder
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Button(
-                            onClick = {
-                                if (altName.trim().isNotEmpty()) {
-                                    val mgDisplay = if (altMg.trim().isEmpty()) "" else "${altMg.trim()} mg"
-                                    val metadata = "${altName.trim()} $mgDisplay".trim()
-                                    
-                                    // Save custom medication persistently
-                                    viewModel.saveCustomAlternative(altName, altMg)
-                                    // Log the entry in SQLite
-                                    viewModel.addEntry(EntryType.ALTERNATIVE, ZonedDateTime.now().toString(), metadata)
-                                    
-                                    // Clear inputs and collapse
-                                    altName = ""
-                                    altMg = ""
-                                    showAlternativeForm = false
-                                    Toast.makeText(context, "Alternative Pill logged", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    Toast.makeText(context, "Please enter a medication name", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = PastelIceBlue, contentColor = AmoledBlack),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(text = "Save & Log Entry", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-
-            // Saved Alternatives Section (Tactile fast-picking actions panel)
-            if (savedAlternatives.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(text = "SAVED ALTERNATIVES (FAST-PICKING)", color = DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
-                Spacer(modifier = Modifier.height(6.dp))
-                
-                FlowRow(
+            if (isCustomBiologicalActive) {
+                // Bio. Med. quick actions row - Custom biological treatment only
+                val medLabel = "$profileBiologicalMedicationState $profileBiologicalMgState mg"
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    savedAlternatives.forEach { alt ->
-                        val displayLabel = "${alt.first} ${if (alt.second.isNotEmpty()) "${alt.second} mg" else ""}".trim()
-                        Card(
-                            onClick = {
-                                viewModel.addEntry(EntryType.ALTERNATIVE, ZonedDateTime.now().toString(), displayLabel)
-                                Toast.makeText(context, "$displayLabel logged", Toast.LENGTH_SHORT).show()
-                            },
-                            colors = CardDefaults.cardColors(containerColor = DarkSurface),
-                            border = BorderStroke(1.dp, PastelIceBlue.copy(alpha = 0.4f)),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                contentAlignment = Alignment.Center
+                    CircularPillButton(
+                        label = medLabel,
+                        color = PastelIceBlue,
+                        onClick = {
+                            val medNameLower = profileBiologicalMedicationState.trim().lowercase()
+                            val mgClean = profileBiologicalMgState.trim()
+                            if (medNameLower == "xolair" && mgClean == "150") {
+                                viewModel.addEntry(EntryType.XOLAIR_150, ZonedDateTime.now().toString(), "150 mg")
+                                Toast.makeText(context, "Xolair 150 mg logged", Toast.LENGTH_SHORT).show()
+                            } else if (medNameLower == "xolair" && mgClean == "300") {
+                                viewModel.addEntry(EntryType.XOLAIR_300, ZonedDateTime.now().toString(), "300 mg")
+                                Toast.makeText(context, "Xolair 300 mg logged", Toast.LENGTH_SHORT).show()
+                            } else {
+                                viewModel.addEntry(EntryType.ALTERNATIVE, ZonedDateTime.now().toString(), medLabel)
+                                Toast.makeText(context, "$medLabel logged", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            } else {
+                // Xolair quick actions row - Defaults
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularPillButton(
+                        label = "Xolair 150 mg",
+                        color = PastelIceBlue,
+                        onClick = {
+                            viewModel.addEntry(EntryType.XOLAIR_150, ZonedDateTime.now().toString(), "150 mg")
+                            Toast.makeText(context, "Xolair 150 mg logged", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    CircularPillButton(
+                        label = "Xolair 300 mg",
+                        color = PastelIceBlue,
+                        onClick = {
+                            viewModel.addEntry(EntryType.XOLAIR_300, ZonedDateTime.now().toString(), "300 mg")
+                            Toast.makeText(context, "Xolair 300 mg logged", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Saved Alternatives Section (Tactile fast-picking actions panel)
+                if (savedAlternatives.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(text = "SAVED ALTERNATIVES (FAST-PICKING)", color = DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        savedAlternatives.forEach { alt ->
+                            val displayLabel = "${alt.first} ${if (alt.second.isNotEmpty()) "${alt.second} mg" else ""}".trim()
+                            Card(
+                                onClick = {
+                                    viewModel.addEntry(EntryType.ALTERNATIVE, ZonedDateTime.now().toString(), displayLabel)
+                                    Toast.makeText(context, "$displayLabel logged", Toast.LENGTH_SHORT).show()
+                                },
+                                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                                border = BorderStroke(1.dp, PastelIceBlue.copy(alpha = 0.4f)),
+                                shape = RoundedCornerShape(16.dp)
                             ) {
-                                Text(text = displayLabel, color = PastelIceBlue, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Box(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = displayLabel, color = PastelIceBlue, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
@@ -1480,28 +1455,54 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
                     modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(
-                        onClick = {
-                            viewModel.addEntry(EntryType.XOLAIR_150, pendingManualTimestamp, "150 mg")
-                            showXolairChoiceDialog = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = DarkCard, contentColor = Color(0xFF509729)),
-                        border = BorderStroke(1.dp, Color(0xFF509729).copy(alpha = 0.5f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = "Xolair 150 mg", fontWeight = FontWeight.Bold)
-                    }
+                    if (isCustomBiologicalActive) {
+                        val medLabel = "$profileBiologicalMedicationState $profileBiologicalMgState mg"
+                        Button(
+                            onClick = {
+                                val medNameLower = profileBiologicalMedicationState.trim().lowercase()
+                                val mgClean = profileBiologicalMgState.trim()
+                                if (medNameLower == "xolair" && mgClean == "150") {
+                                    viewModel.addEntry(EntryType.XOLAIR_150, pendingManualTimestamp, "150 mg")
+                                    Toast.makeText(context, "Xolair 150 mg logged", Toast.LENGTH_SHORT).show()
+                                } else if (medNameLower == "xolair" && mgClean == "300") {
+                                    viewModel.addEntry(EntryType.XOLAIR_300, pendingManualTimestamp, "300 mg")
+                                    Toast.makeText(context, "Xolair 300 mg logged", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    viewModel.addEntry(EntryType.ALTERNATIVE, pendingManualTimestamp, medLabel)
+                                    Toast.makeText(context, "$medLabel logged", Toast.LENGTH_SHORT).show()
+                                }
+                                showXolairChoiceDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = DarkCard, contentColor = Color(0xFF509729)),
+                            border = BorderStroke(1.dp, Color(0xFF509729).copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(text = medLabel, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                viewModel.addEntry(EntryType.XOLAIR_150, pendingManualTimestamp, "150 mg")
+                                showXolairChoiceDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = DarkCard, contentColor = Color(0xFF509729)),
+                            border = BorderStroke(1.dp, Color(0xFF509729).copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(text = "Xolair 150 mg", fontWeight = FontWeight.Bold)
+                        }
 
-                    Button(
-                        onClick = {
-                            viewModel.addEntry(EntryType.XOLAIR_300, pendingManualTimestamp, "300 mg")
-                            showXolairChoiceDialog = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = DarkCard, contentColor = Color(0xFF509729)),
-                        border = BorderStroke(1.dp, Color(0xFF509729).copy(alpha = 0.5f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = "Xolair 300 mg", fontWeight = FontWeight.Bold)
+                        Button(
+                            onClick = {
+                                viewModel.addEntry(EntryType.XOLAIR_300, pendingManualTimestamp, "300 mg")
+                                showXolairChoiceDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = DarkCard, contentColor = Color(0xFF509729)),
+                            border = BorderStroke(1.dp, Color(0xFF509729).copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(text = "Xolair 300 mg", fontWeight = FontWeight.Bold)
+                        }
                     }
 
                     TextButton(
@@ -2106,59 +2107,90 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
 
                         Spacer(modifier = Modifier.height(4.dp))
 
+                        // Angioedema Only Checkbox Row
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { 
+                                    isEditAngioedemaOnlySelected = !isEditAngioedemaOnlySelected 
+                                }
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Angioedema",
-                                color = CoralPink,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.width(90.dp)
+                            Checkbox(
+                                checked = isEditAngioedemaOnlySelected,
+                                onCheckedChange = null,
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = CoralPink,
+                                    uncheckedColor = MutedGray,
+                                    checkmarkColor = AmoledBlack
+                                )
                             )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Angioedema Only",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        if (!isEditAngioedemaOnlySelected) {
+                            // Angioedema Radio Button Row
                             Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.clickable {
-                                    isEditAngioYesSelected = true
-                                    isEditAngioNoSelected = false
-                                }
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                RadioButton(
-                                    selected = isEditAngioYesSelected,
-                                    onClick = {
+                                Text(
+                                    text = "Angioedema",
+                                    color = CoralPink,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.width(90.dp)
+                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.clickable {
                                         isEditAngioYesSelected = true
                                         isEditAngioNoSelected = false
-                                    },
-                                    colors = RadioButtonDefaults.colors(
-                                        selectedColor = CoralPink,
-                                        unselectedColor = MutedGray
+                                    }
+                                ) {
+                                    RadioButton(
+                                        selected = isEditAngioYesSelected,
+                                        onClick = {
+                                            isEditAngioYesSelected = true
+                                            isEditAngioNoSelected = false
+                                        },
+                                        colors = RadioButtonDefaults.colors(
+                                            selectedColor = CoralPink,
+                                            unselectedColor = MutedGray
+                                        )
                                     )
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = "Yes", color = Color(0xFF737373), fontSize = 12.sp)
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.clickable {
-                                    isEditAngioYesSelected = false
-                                    isEditAngioNoSelected = true
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(text = "Yes", color = Color(0xFF737373), fontSize = 12.sp)
                                 }
-                            ) {
-                                RadioButton(
-                                    selected = isEditAngioNoSelected,
-                                    onClick = {
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.clickable {
                                         isEditAngioYesSelected = false
                                         isEditAngioNoSelected = true
-                                    },
-                                    colors = RadioButtonDefaults.colors(
-                                        selectedColor = CoralPink,
-                                        unselectedColor = MutedGray
+                                    }
+                                ) {
+                                    RadioButton(
+                                        selected = isEditAngioNoSelected,
+                                        onClick = {
+                                            isEditAngioYesSelected = false
+                                            isEditAngioNoSelected = true
+                                        },
+                                        colors = RadioButtonDefaults.colors(
+                                            selectedColor = CoralPink,
+                                            unselectedColor = MutedGray
+                                        )
                                     )
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = "No", color = Color(0xFF737373), fontSize = 12.sp)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(text = "No", color = Color(0xFF737373), fontSize = 12.sp)
+                                }
                             }
                         }
 
@@ -2177,6 +2209,9 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
                             vegetablesText = editVegetablesText,
                             fruitsText = editFruitsText,
                             illnessText = editIllnessText,
+                            medicineOtherNameText = editMedicineOtherNameText,
+                            medicineOtherCauseText = editMedicineOtherCauseText,
+                            insectText = editInsectText,
                             viewModel = viewModel,
                             themeColor = CoralPink,
                             maxHeight = 250
@@ -2497,7 +2532,7 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
                             updateMetadataWearingOff(baseMetaWithReason, editWearingOffTimestamp)
                         } else if (entry.type == EntryType.FLARE_UP) {
                             val severityStr = if (isEditSevereSelected) "Severity: Severe" else "Severity: Mild"
-                            val angioStr = if (isEditAngioYesSelected) "Angioedema: Yes" else "Angioedema: No"
+                            val angioStr = if (isEditAngioedemaOnlySelected || isEditAngioYesSelected) "Angioedema: Yes" else "Angioedema: No"
                             val finalReasons = mutableListOf<String>()
                             selectedEditReasons.forEach { r ->
                                 when (r) {
@@ -2522,11 +2557,33 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
                                             finalReasons.add("Illness")
                                         }
                                     }
+                                    "Medicine : Other" -> {
+                                        val name = editMedicineOtherNameText.value.trim()
+                                        val cause = editMedicineOtherCauseText.value.trim()
+                                        if (name.isNotEmpty()) {
+                                            val causePart = if (cause.isNotEmpty()) " (Cause: $cause)" else ""
+                                            finalReasons.add("Medicine : Other: $name$causePart")
+                                        } else {
+                                            finalReasons.add("Medicine : Other")
+                                        }
+                                    }
+                                    "Insect Bite/Sting" -> {
+                                        val insect = editInsectText.value.trim()
+                                        if (insect.isNotEmpty()) {
+                                            finalReasons.add("Insect Bite/Sting: $insect")
+                                        } else {
+                                            finalReasons.add("Insect Bite/Sting")
+                                        }
+                                    }
                                     else -> finalReasons.add(r)
                                 }
                             }
                             val reasonsStr = finalReasons.joinToString("; ")
-                            if (reasonsStr.isNotEmpty()) "$severityStr; $reasonsStr" else severityStr
+                            if (isEditAngioedemaOnlySelected) {
+                                if (reasonsStr.isNotEmpty()) "$severityStr; Angioedema: Yes; Title: Angioedema; $reasonsStr" else "$severityStr; Angioedema: Yes; Title: Angioedema"
+                            } else {
+                                if (reasonsStr.isNotEmpty()) "$severityStr; $angioStr; $reasonsStr" else "$severityStr; $angioStr"
+                            }
                         } else if (entry.type == EntryType.XOLAIR_150 || entry.type == EntryType.XOLAIR_300) {
                             updateMetadataWearingOff(entry.metadata, editWearingOffTimestamp)
                         } else {
@@ -2561,7 +2618,7 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
             containerColor = DarkSurface,
             title = {
                 Text(
-                    text = "Select Potential Reasons",
+                    text = if (isManualAngioedemaOnlySelected) "Log Angioedema" else "Select Potential Reasons",
                     color = CoralPink,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
@@ -2637,59 +2694,90 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
 
                     Spacer(modifier = Modifier.height(4.dp))
 
+                    // Angioedema Only Checkbox Row
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { 
+                                isManualAngioedemaOnlySelected = !isManualAngioedemaOnlySelected 
+                            }
+                            .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Angioedema",
-                            color = CoralPink,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.width(90.dp)
+                        Checkbox(
+                            checked = isManualAngioedemaOnlySelected,
+                            onCheckedChange = null,
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = CoralPink,
+                                uncheckedColor = MutedGray,
+                                checkmarkColor = AmoledBlack
+                            )
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Angioedema Only",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    if (!isManualAngioedemaOnlySelected) {
+                        // Angioedema Radio Button Row
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable {
-                                isManualAngioYesSelected = true
-                                isManualAngioNoSelected = false
-                            }
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(
-                                selected = isManualAngioYesSelected,
-                                onClick = {
+                            Text(
+                                text = "Angioedema",
+                                color = CoralPink,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.width(90.dp)
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable {
                                     isManualAngioYesSelected = true
                                     isManualAngioNoSelected = false
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = CoralPink,
-                                    unselectedColor = MutedGray
+                                }
+                            ) {
+                                RadioButton(
+                                    selected = isManualAngioYesSelected,
+                                    onClick = {
+                                        isManualAngioYesSelected = true
+                                        isManualAngioNoSelected = false
+                                    },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = CoralPink,
+                                        unselectedColor = MutedGray
+                                    )
                                 )
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "Yes", color = Color(0xFF737373), fontSize = 12.sp)
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable {
-                                isManualAngioYesSelected = false
-                                isManualAngioNoSelected = true
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = "Yes", color = Color(0xFF737373), fontSize = 12.sp)
                             }
-                        ) {
-                            RadioButton(
-                                selected = isManualAngioNoSelected,
-                                onClick = {
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable {
                                     isManualAngioYesSelected = false
                                     isManualAngioNoSelected = true
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = CoralPink,
-                                    unselectedColor = MutedGray
+                                }
+                            ) {
+                                RadioButton(
+                                    selected = isManualAngioNoSelected,
+                                    onClick = {
+                                        isManualAngioYesSelected = false
+                                        isManualAngioNoSelected = true
+                                    },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = CoralPink,
+                                        unselectedColor = MutedGray
+                                    )
                                 )
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "No", color = Color(0xFF737373), fontSize = 12.sp)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = "No", color = Color(0xFF737373), fontSize = 12.sp)
+                            }
                         }
                     }
 
@@ -2707,6 +2795,9 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
                         vegetablesText = manualVegetablesText,
                         fruitsText = manualFruitsText,
                         illnessText = manualIllnessText,
+                        medicineOtherNameText = manualMedicineOtherNameText,
+                        medicineOtherCauseText = manualMedicineOtherCauseText,
+                        insectText = manualInsectText,
                         viewModel = viewModel,
                         themeColor = CoralPink,
                         maxHeight = 400
@@ -2717,7 +2808,7 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
                 Button(
                     onClick = {
                         val severityStr = if (isManualSevereSelected) "Severity: Severe" else "Severity: Mild"
-                        val angioStr = if (isManualAngioYesSelected) "Angioedema: Yes" else "Angioedema: No"
+                        val angioStr = if (isManualAngioedemaOnlySelected || isManualAngioYesSelected) "Angioedema: Yes" else "Angioedema: No"
                         val finalReasons = mutableListOf<String>()
                         selectedManualReasons.forEach { r ->
                             when (r) {
@@ -2742,11 +2833,33 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
                                         finalReasons.add("Illness")
                                     }
                                 }
+                                "Medicine : Other" -> {
+                                    val name = manualMedicineOtherNameText.value.trim()
+                                    val cause = manualMedicineOtherCauseText.value.trim()
+                                    if (name.isNotEmpty()) {
+                                        val causePart = if (cause.isNotEmpty()) " (Cause: $cause)" else ""
+                                        finalReasons.add("Medicine : Other: $name$causePart")
+                                    } else {
+                                        finalReasons.add("Medicine : Other")
+                                    }
+                                }
+                                "Insect Bite/Sting" -> {
+                                    val insect = manualInsectText.value.trim()
+                                    if (insect.isNotEmpty()) {
+                                        finalReasons.add("Insect Bite/Sting: $insect")
+                                    } else {
+                                        finalReasons.add("Insect Bite/Sting")
+                                    }
+                                }
                                 else -> finalReasons.add(r)
                             }
                         }
                         val reasonsStr = finalReasons.joinToString("; ")
-                        val metadata = if (reasonsStr.isNotEmpty()) "$severityStr; $angioStr; $reasonsStr" else "$severityStr; $angioStr"
+                        val metadata = if (isManualAngioedemaOnlySelected) {
+                            if (reasonsStr.isNotEmpty()) "$severityStr; Angioedema: Yes; Title: Angioedema; $reasonsStr" else "$severityStr; Angioedema: Yes; Title: Angioedema"
+                        } else {
+                            if (reasonsStr.isNotEmpty()) "$severityStr; $angioStr; $reasonsStr" else "$severityStr; $angioStr"
+                        }
                         viewModel.addEntry(EntryType.FLARE_UP, pendingManualTimestamp, metadata)
                         showFlareUpManualDialog = false
                     },
@@ -2765,6 +2878,49 @@ fun HistoryLogList(viewModel: TrackerViewModel, entries: List<LogEntry>, onPatte
 
     if (showApdExplanationDialog) {
         ApdExplanationDialog(onDismiss = { showApdExplanationDialog = false })
+    }
+
+    if (showResetConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmDialog = false },
+            containerColor = DarkSurface,
+            title = {
+                Text(
+                    text = "Reset Log",
+                    color = AlertRed,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "This will clear all previous logged data, which will reset every insight and analysis related to it.\n\nAre you sure you want to reset your data?",
+                    color = LightGray,
+                    fontSize = 13.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        when (selectedTab) {
+                            0 -> viewModel.clearAllEntriesOfTypes(listOf(EntryType.ANTIHISTAMINE, EntryType.CORTISONE))
+                            1 -> viewModel.clearAllEntriesOfTypes(listOf(EntryType.FLARE_UP))
+                            2 -> viewModel.clearAllEntriesOfTypes(listOf(EntryType.XOLAIR_150, EntryType.XOLAIR_300, EntryType.ALTERNATIVE))
+                        }
+                        showResetConfirmDialog = false
+                        Toast.makeText(context, "Log cleared successfully.", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AlertRed, contentColor = Color.White)
+                ) {
+                    Text(text = "Yes", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirmDialog = false }) {
+                    Text(text = "No", color = MutedGray)
+                }
+            }
+        )
     }
 }
 

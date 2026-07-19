@@ -87,14 +87,9 @@ object MilestoneEvaluator {
                     if (hours >= 48L) {
                         // Extract reason from med1
                         val parts = (med1.metadata ?: "").split(":::").filter { !it.startsWith("wearing_off:") }
-                        val idx = if (med1.type == EntryType.ALTERNATIVE) 1 else 2
-                        val rawReason = if (parts.size > idx) {
-                            parts.drop(idx).joinToString(":::")
-                                .replace("Streak Break Reason:", "")
-                                .trim()
-                        } else {
-                            ""
-                        }
+                        val rawReason = parts.find { it.startsWith("Streak Break Reason:") }
+                            ?.replace("Streak Break Reason:", "")
+                            ?.trim() ?: ""
                         val reason = if (rawReason.isNotEmpty()) rawReason else "Unspecified"
                         val dateCompletedStr = t1.format(dateFormatter)
                         list.add(

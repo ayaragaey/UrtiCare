@@ -54,6 +54,7 @@ fun RecentIntakeLog(viewModel: TrackerViewModel, entries: List<LogEntry>) {
     var editTimestamp by remember { mutableStateOf("") }
     var editMedName by remember { mutableStateOf("") }
     var editMedMgs by remember { mutableStateOf("") }
+    var editEffectStarted by remember { mutableStateOf("") }
     var showAutocompleteSuggestions by remember { mutableStateOf(false) }
     var selectedIndex by remember { mutableIntStateOf(-1) }
 
@@ -154,16 +155,41 @@ fun RecentIntakeLog(viewModel: TrackerViewModel, entries: List<LogEntry>) {
         editTimestamp = item.timestamp
         if (item.type == EntryType.ANTIHISTAMINE || item.type == EntryType.CORTISONE) {
             val parts = (item.metadata ?: "").split(":::")
-            if (parts.size >= 2) {
-                editMedName = parts[0]
-                editMedMgs = parts[1]
+            val rawName = if (parts.size >= 2) parts[0].trim() else (item.metadata ?: "").trim()
+            val rawMgs = if (parts.size >= 2) parts[1].trim() else ""
+            
+            if (item.type == EntryType.ANTIHISTAMINE) {
+                val mainMed = antihistamines.find { it.isMain } ?: antihistamines.firstOrNull()
+                val otherMed = antihistamines.find { !it.isMain } ?: antihistamines.firstOrNull()
+                val resolvedMed = when {
+                    rawName.equals("Cetirizine", ignoreCase = true) -> mainMed
+                    rawName.equals("Loratadine", ignoreCase = true) -> otherMed
+                    else -> antihistamines.find { it.name.trim().lowercase() == rawName.lowercase() } ?: mainMed
+                }
+                if (resolvedMed != null) {
+                    editMedName = resolvedMed.name
+                    editMedMgs = resolvedMed.mgs.replace("mg", "").trim()
+                } else {
+                    editMedName = rawName
+                    editMedMgs = rawMgs.replace("mg", "").trim()
+                }
+                editEffectStarted = if (parts.size >= 3) parts[2] else ""
             } else {
-                editMedName = item.metadata ?: ""
-                editMedMgs = ""
+                val mainMed = profileCortisones.firstOrNull()
+                val resolvedMed = profileCortisones.find { it.name.trim().lowercase() == rawName.lowercase() } ?: mainMed
+                if (resolvedMed != null) {
+                    editMedName = resolvedMed.name
+                    editMedMgs = resolvedMed.mgs.replace("mg", "").trim()
+                } else {
+                    editMedName = rawName
+                    editMedMgs = rawMgs.replace("mg", "").trim()
+                }
+                editEffectStarted = ""
             }
         } else {
             editMedName = ""
             editMedMgs = ""
+            editEffectStarted = ""
         }
     }
 
@@ -216,19 +242,37 @@ fun RecentIntakeLog(viewModel: TrackerViewModel, entries: List<LogEntry>) {
                     displayEntries.forEachIndexed { idx, item ->
                         val friendlyLabel = when (item.type) {
                             EntryType.ANTIHISTAMINE -> {
-                                if (!item.metadata.isNullOrEmpty()) {
-                                    val parts = item.metadata.split(":::")
-                                    if (parts.size >= 2) "${parts[0]} (${parts[1]} mg)" else item.metadata
+                                val mainMed = antihistamines.find { it.isMain } ?: antihistamines.firstOrNull()
+                                if (mainMed != null) {
+                                    val cleanMgs = mainMed.mgs.replace("mg", "").trim()
+                                    "${mainMed.name} ($cleanMgs mg)"
                                 } else {
-                                    "Antihestamine"
+                                    if (!item.metadata.isNullOrEmpty()) {
+                                        val parts = item.metadata.split(":::")
+                                        val dose = if (parts.size >= 2) parts[1].trim() else ""
+                                        val name = parts[0].trim()
+                                        val cleanDose = dose.replace("mg", "").trim()
+                                        if (cleanDose.isNotEmpty()) "$name ($cleanDose mg)" else name
+                                    } else {
+                                        "Antihestamine"
+                                    }
                                 }
                             }
                             EntryType.CORTISONE -> {
-                                if (!item.metadata.isNullOrEmpty()) {
-                                    val parts = item.metadata.split(":::")
-                                    if (parts.size >= 2) "${parts[0]} (${parts[1]} mg)" else item.metadata
+                                val mainMed = profileCortisones.firstOrNull()
+                                if (mainMed != null) {
+                                    val cleanMgs = mainMed.mgs.replace("mg", "").trim()
+                                    "${mainMed.name} ($cleanMgs mg)"
                                 } else {
-                                    "Cortisone"
+                                    if (!item.metadata.isNullOrEmpty()) {
+                                        val parts = item.metadata.split(":::")
+                                        val dose = if (parts.size >= 2) parts[1].trim() else ""
+                                        val name = parts[0].trim()
+                                        val cleanDose = dose.replace("mg", "").trim()
+                                        if (cleanDose.isNotEmpty()) "$name ($cleanDose mg)" else name
+                                    } else {
+                                        "Cortisone"
+                                    }
                                 }
                             }
                             else -> "Pill"
@@ -303,12 +347,7 @@ fun RecentIntakeLog(viewModel: TrackerViewModel, entries: List<LogEntry>) {
                                 val streakBreakReason = if (item.type == EntryType.ANTIHISTAMINE || item.type == EntryType.CORTISONE) {
                                     val parts = (item.metadata ?: "").split(":::")
                                         .filter { !it.startsWith("wearing_off:") && !it.startsWith("Ongoing Medication:") }
-                                    if (parts.size > 2) {
-                                        val r = parts.drop(2).joinToString(":::")
-                                        if (r.startsWith("Streak Break Reason:")) r else "Streak Break Reason: $r"
-                                    } else {
-                                        null
-                                    }
+                                    parts.find { it.startsWith("Streak Break Reason:") }
                                 } else {
                                     null
                                 }
@@ -725,6 +764,65 @@ fun RecentIntakeLog(viewModel: TrackerViewModel, entries: List<LogEntry>) {
                              ),
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        if (entry.type == EntryType.ANTIHISTAMINE) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            if (editEffectStarted.isEmpty()) {
+                                OutlinedButton(
+                                    onClick = {
+                                        val d1 = try { ZonedDateTime.parse(editTimestamp) } catch (e: Exception) { ZonedDateTime.now() }
+                                        val d2 = ZonedDateTime.now()
+                                        val duration = java.time.Duration.between(d1, d2)
+                                        val diffMins = Math.max(0L, duration.toMinutes())
+                                        editEffectStarted = if (diffMins < 60) {
+                                            "$diffMins mins"
+                                        } else {
+                                            val hrs = diffMins / 60
+                                            val mins = diffMins % 60
+                                            if (mins > 0) "$hrs hrs $mins mins" else "$hrs hrs"
+                                        }
+                                    },
+                                    border = BorderStroke(1.dp, Color(0xFF509729)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF509729)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth().height(40.dp)
+                                ) {
+                                    Text("Medication Response Time", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Text(
+                                    text = "Optional",
+                                    color = MutedGray,
+                                    fontSize = 9.sp,
+                                    modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                                )
+                            } else {
+                                OutlinedTextField(
+                                    value = editEffectStarted,
+                                    onValueChange = { editEffectStarted = it },
+                                    label = { Text("Effect Started", color = MutedGray, fontSize = 11.sp) },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFF737373),
+                                        unfocusedTextColor = Color(0xFF737373),
+                                        focusedBorderColor = Color(0xFF509729),
+                                        unfocusedBorderColor = DarkBorder,
+                                        focusedContainerColor = DarkCard,
+                                        unfocusedContainerColor = DarkCard
+                                    ),
+                                    trailingIcon = {
+                                        IconButton(onClick = { editEffectStarted = "" }) {
+                                            Text(
+                                                text = "✕",
+                                                color = MutedGray,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
                     }
                 }
             },
@@ -740,10 +838,25 @@ fun RecentIntakeLog(viewModel: TrackerViewModel, entries: List<LogEntry>) {
                                 Toast.makeText(context, "Please enter a valid dosage", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
+                            if (entry.type == EntryType.ANTIHISTAMINE) {
+                                val isExist = antihistamines.any { it.name.trim().lowercase() == editMedName.trim().lowercase() }
+                                if (!isExist && editMedName.trim().isNotEmpty()) {
+                                    viewModel.addProfileAntihistamine(editMedName.trim(), editMedMgs.trim(), "2nd", isMain = false)
+                                }
+                            } else if (entry.type == EntryType.CORTISONE) {
+                                val isExist = profileCortisones.any { it.name.trim().lowercase() == editMedName.trim().lowercase() }
+                                if (!isExist && editMedName.trim().isNotEmpty()) {
+                                    viewModel.addProfileCortisone(editMedName.trim(), editMedMgs.trim())
+                                }
+                            }
                             val baseMeta = "${editMedName.trim()}:::${editMedMgs.trim()}"
-                            val oldParts = (entry.metadata ?: "").split(":::")
-                            val oldReason = if (oldParts.size >= 3) oldParts.drop(2).joinToString(":::") else ""
-                            if (oldReason.isNotEmpty()) "$baseMeta:::$oldReason" else baseMeta
+                            if (entry.type == EntryType.ANTIHISTAMINE) {
+                                "$baseMeta:::${editEffectStarted.trim()}"
+                            } else {
+                                val oldParts = (entry.metadata ?: "").split(":::")
+                                val oldReason = if (oldParts.size >= 3) oldParts.drop(2).joinToString(":::") else ""
+                                if (oldReason.isNotEmpty()) "$baseMeta:::$oldReason" else baseMeta
+                            }
                         } else {
                             entry.metadata
                         }

@@ -10,5 +10,6 @@ data class ChatSession(
     val id: String,
     val title: String,
     val startTime: String,
-    val messages: List<ChatMessage>
+    val messages: List<ChatMessage>,
+    val language: String = "EN"
 )

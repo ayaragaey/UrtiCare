@@ -2,6 +2,107 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
 import { useTrackerStore } from '../store/useTrackerStore';
 
+interface GlossyPillProps {
+  type: 'FLARE_UP' | 'ANTIHISTAMINE' | 'CORTISONE';
+  label: string;
+  subtext?: string;
+  size: number;
+  onPress: () => void;
+}
+
+function GlossyActionPill({ type, label, subtext, size, onPress }: GlossyPillProps) {
+  // Gel/glossy base colors
+  const baseColor = 
+    type === 'FLARE_UP' ? '#814b92' : 
+    type === 'ANTIHISTAMINE' ? '#509729' : 
+    '#1b8097';
+
+  // Increased ring size factor from 0.76 to 0.85 to provide more space for text
+  const ringSize = size * 0.85;
+
+  return (
+    <TouchableOpacity 
+      style={[
+        styles.pillContainer, 
+        { 
+          width: size, 
+          height: size, 
+          borderRadius: size / 2, 
+          backgroundColor: baseColor 
+        },
+        type === 'ANTIHISTAMINE' && styles.focalPillContainer
+      ]} 
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      {/* Outer 3D Bevel Highlights (lighter top border, darker bottom border) */}
+      <View 
+        style={[
+          styles.bevelHighlight, 
+          { 
+            width: size, 
+            height: size, 
+            borderRadius: size / 2 
+          }
+        ]} 
+      />
+      
+      {/* Inner Ring Drop Shadow for 3D depth */}
+      <View 
+        style={[
+          styles.ringShadow, 
+          { 
+            width: ringSize, 
+            height: ringSize, 
+            borderRadius: ringSize / 2,
+            top: (size - ringSize) / 2 + 1.2,
+            left: (size - ringSize) / 2 + 0.6,
+          }
+        ]} 
+      />
+      
+      {/* Inner White Ring containing the labels */}
+      <View 
+        style={[
+          styles.whiteRing, 
+          { 
+            width: ringSize, 
+            height: ringSize, 
+            borderRadius: ringSize / 2,
+            top: (size - ringSize) / 2,
+            left: (size - ringSize) / 2,
+          }
+        ]}
+      >
+        <View style={styles.textContainer}>
+          <Text 
+            style={[
+              styles.pillText, 
+              type === 'ANTIHISTAMINE' && styles.focalText,
+              type === 'CORTISONE' && styles.cortisoneText
+            ]}
+            numberOfLines={type === 'CORTISONE' ? 2 : 1}
+            adjustsFontSizeToFit={true}
+            minimumFontScale={0.7}
+          >
+            {label}
+          </Text>
+          {subtext && (
+            <Text 
+              style={styles.pillSubtext}
+              numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.75}
+            >
+              {subtext}
+            </Text>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 export default function ActionPillsGroup() {
   const addEntry = useTrackerStore(state => state.addEntry);
   const setCollisionWarning = useTrackerStore(state => state.setCollisionWarning);
@@ -11,7 +112,6 @@ export default function ActionPillsGroup() {
     const result = addEntry(type, timestamp);
     
     if (result.collision) {
-      // Trigger warning dialog in the store
       setCollisionWarning({
         type,
         timestamp,
@@ -23,38 +123,35 @@ export default function ActionPillsGroup() {
   return (
     <View style={styles.container}>
       {/* Flare Up Button */}
-      <TouchableOpacity 
-        style={[styles.pill, styles.flareUpPill]} 
+      <GlossyActionPill 
+        type="FLARE_UP"
+        label="Flare Up"
+        size={basePillSize}
         onPress={() => handleAction('FLARE_UP')}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.pillText}>Flare Up</Text>
-      </TouchableOpacity>
+      />
 
       {/* Antihistamine Taken Button (Focal Element - scaled by exactly 15%) */}
-      <TouchableOpacity 
-        style={[styles.pill, styles.antihistaminePill, styles.focalPill]} 
+      <GlossyActionPill 
+        type="ANTIHISTAMINE"
+        label="Antihistamine"
+        subtext="Taken"
+        size={basePillSize * 1.15}
         onPress={() => handleAction('ANTIHISTAMINE')}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.pillText, styles.focalText]}>Antihistamine</Text>
-        <Text style={styles.pillSubtext}>Taken</Text>
-      </TouchableOpacity>
+      />
 
       {/* Cortisone/Steroid Button */}
-      <TouchableOpacity 
-        style={[styles.pill, styles.cortisonePill]} 
+      <GlossyActionPill 
+        type="CORTISONE"
+        label={"Cortico-\nsteroids"}
+        size={basePillSize}
         onPress={() => handleAction('CORTISONE')}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.pillText, { fontSize: 10, lineHeight: 12 }]}>Cortico{"\n"}steroids</Text>
-      </TouchableOpacity>
+      />
     </View>
   );
 }
 
 const screenWidth = Dimensions.get('window').width;
-const basePillSize = Math.min(100, screenWidth * 0.24);
+const basePillSize = Math.min(96, screenWidth * 0.24);
 
 const styles = StyleSheet.create({
   container: {
@@ -65,13 +162,11 @@ const styles = StyleSheet.create({
     marginVertical: 24,
     width: '100%',
   },
-  pill: {
-    width: basePillSize,
-    height: basePillSize,
-    borderRadius: basePillSize / 2,
+  pillContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 8,
+    overflow: 'hidden',
+    position: 'relative',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -87,14 +182,10 @@ const styles = StyleSheet.create({
       }
     }),
   },
-  focalPill: {
-    width: basePillSize * 1.15,
-    height: basePillSize * 1.15,
-    borderRadius: (basePillSize * 1.15) / 2,
+  focalPillContainer: {
     zIndex: 10,
     ...Platform.select({
       ios: {
-        shadowScale: 1.1,
         shadowColor: '#1b8097',
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.4,
@@ -104,34 +195,68 @@ const styles = StyleSheet.create({
         elevation: 8,
       },
       web: {
-        boxShadow: '0 6px 20px rgba(27, 128, 151, 0.3)',
+        boxShadow: '0 6px 20px rgba(80, 151, 41, 0.35)',
       }
     }),
   },
-  flareUpPill: {
-    backgroundColor: '#814b92',
+  bevelHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderWidth: 1.5,
+    borderTopColor: 'rgba(255, 255, 255, 0.4)',
+    borderLeftColor: 'rgba(255, 255, 255, 0.4)',
+    borderBottomColor: 'rgba(0, 0, 0, 0.35)',
+    borderRightColor: 'rgba(0, 0, 0, 0.35)',
+    zIndex: 2,
   },
-  antihistaminePill: {
-    backgroundColor: '#509729',
+  ringShadow: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderColor: 'rgba(0, 0, 0, 0.15)',
+    zIndex: 1,
   },
-  cortisonePill: {
-    backgroundColor: '#1b8097',
+  whiteRing: {
+    position: 'absolute',
+    borderWidth: 2.2,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+    backgroundColor: 'transparent',
+  },
+  textContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 2,
   },
   pillText: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 10.5,
+    fontWeight: '900',
     textAlign: 'center',
     letterSpacing: -0.2,
+    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   focalText: {
-    fontSize: 14,
+    fontSize: 10.5,
+  },
+  cortisoneText: {
+    fontSize: 8.5,
+    lineHeight: 10,
   },
   pillSubtext: {
     color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '500',
+    fontSize: 7.5,
+    fontWeight: '800',
     textAlign: 'center',
-    marginTop: 1,
+    marginTop: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   }
 });

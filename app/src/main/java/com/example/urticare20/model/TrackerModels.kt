@@ -286,6 +286,8 @@ object PotentialReasonsDirectory {
             "Food Trigger: Spicy Food / Spices",
             "Food Trigger: Seafood",
             "Food Trigger: Shellfish",
+            "Food Trigger: Salty Fish",
+            "Food Trigger: Salty Foods",
             "Food Trigger: Peanuts / Treenuts (Nuts)",
             "Food Trigger: Diary (Animals Milk)",
             "Food Trigger: Plant-Based Milks",
@@ -310,7 +312,8 @@ object PotentialReasonsDirectory {
             "Fruit: Aggregate (Strawberry, raspberry, blackberry)",
             "Fruit: Tropical (Papaya, guava, passion fruit, dragon fruit, mangosteen)",
             "Fruit: Other",
-            "Food Trigger: Stimulants and Additives",
+            "Food Additives",
+            "Food Preservatives",
             "Food Trigger: Chocolate / Cocoa",
             "Food Trigger: Poultry / Eggs",
             "Food Trigger: Beef",
@@ -351,7 +354,8 @@ object PotentialReasonsDirectory {
             "Pressure points (such as tight waistbands, restrictive clothing, or heavy straps)",
             "Sleep deprivation",
             "Exhaustion/Fatigue",
-            "Dehydration"
+            "Dehydration",
+            "Insect Bite/Sting"
         ),
         "Medication Intervals & Tracking Disruption" to listOf(
             "Missed Antihestamine Dosage",
@@ -363,6 +367,7 @@ object PotentialReasonsDirectory {
             "Medicine: Anti-inflammatory",
             "Medicine: ACE Inhibitors (Blood Pressure)",
             "Medicine: Herbal & Botanical",
+            "Medicine : Other",
             "Hormonal Inputs: Oral contraceptives",
             "Opioids & Narcotics: Morphine, Codeine, Meperidine, Fentanyl",
             "Vitamin: Water-Soluble Vitamins (Vitamin B-complex)",

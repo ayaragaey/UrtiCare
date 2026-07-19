@@ -76,6 +76,8 @@ fun ProfileScreen(viewModel: TrackerViewModel, onBack: () -> Unit = {}) {
     val profileOtherMedications by viewModel.profileOtherMedications.collectAsState()
     val completedCourses by viewModel.completedMedicationCourses.collectAsState()
     val profileOnXolairState by viewModel.profileOnXolair.collectAsState()
+    val profileBiologicalMedicationState by viewModel.profileBiologicalMedication.collectAsState()
+    val profileBiologicalMgState by viewModel.profileBiologicalMg.collectAsState()
 
     // Local inputs for editing prior to saving
     var nameInput by remember(profileNameState) { mutableStateOf(profileNameState) }
@@ -84,6 +86,8 @@ fun ProfileScreen(viewModel: TrackerViewModel, onBack: () -> Unit = {}) {
     var pregnantInput by remember(profilePregnantState) { mutableStateOf(profilePregnantState) }
     var monthInput by remember(profilePregnancyMonthState) { mutableStateOf(profilePregnancyMonthState) }
     var onXolairInput by remember(profileOnXolairState) { mutableStateOf(profileOnXolairState) }
+    var biologicalMedicationInput by remember(profileBiologicalMedicationState) { mutableStateOf(profileBiologicalMedicationState) }
+    var biologicalMgInput by remember(profileBiologicalMgState) { mutableStateOf(profileBiologicalMgState) }
 
     // Dynamic calculated age
     val computedAge = remember(birthDateInput) {
@@ -149,7 +153,7 @@ fun ProfileScreen(viewModel: TrackerViewModel, onBack: () -> Unit = {}) {
     var courseEndDate by remember { mutableStateOf(LocalDate.now()) }
     var showPregnancyOverDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(nameInput, birthDateInput, computedAge, sexInput, pregnantInput, monthInput, selectedDiagnoses, onXolairInput) {
+    LaunchedEffect(nameInput, birthDateInput, computedAge, sexInput, pregnantInput, monthInput, selectedDiagnoses, onXolairInput, biologicalMedicationInput, biologicalMgInput) {
         viewModel.saveProfile(
             name = nameInput.trim(),
             birthDate = birthDateInput,
@@ -160,7 +164,9 @@ fun ProfileScreen(viewModel: TrackerViewModel, onBack: () -> Unit = {}) {
             diagnoses = selectedDiagnoses,
             cortisoneName = "",
             cortisoneMg = "",
-            onXolair = onXolairInput
+            onXolair = onXolairInput,
+            biologicalMedication = biologicalMedicationInput.trim(),
+            biologicalMg = biologicalMgInput.trim()
         )
     }
 
@@ -720,7 +726,9 @@ modifier = Modifier.weight(1.2f)
                                                     diagnoses = selectedDiagnoses,
                                                     cortisoneName = "",
                                                     cortisoneMg = "",
-                                                    onXolair = onXolairInput
+                                                    onXolair = onXolairInput,
+                                                    biologicalMedication = biologicalMedicationInput.trim(),
+                                                    biologicalMg = biologicalMgInput.trim()
                                                 )
                                                 Toast.makeText(context, "Pregnancy month saved!", Toast.LENGTH_SHORT).show()
                                             },
@@ -1074,7 +1082,7 @@ modifier = Modifier.weight(1.2f)
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "On Xolair (or alt)",
+                                text = "Biological Treatment",
                                 color = Color(0xFF737373),
                                 fontSize = 13.sp,
                                 modifier = Modifier.weight(1f)
@@ -1096,7 +1104,7 @@ modifier = Modifier.weight(1.2f)
                                             uncheckedColor = MutedGray,
                                             checkmarkColor = Color.Black
                                         )
-)
+                                    )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text("Yes", color = if (onXolairInput) Color.Black else Color(0xFF737373), fontSize = 13.sp)
                                 }
@@ -1118,6 +1126,47 @@ modifier = Modifier.weight(1.2f)
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text("No", color = if (!onXolairInput) Color.Black else Color(0xFF737373), fontSize = 13.sp)
                                 }
+                            }
+                        }
+
+                        if (onXolairInput) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedTextField(
+                                    value = biologicalMedicationInput,
+                                    onValueChange = { biologicalMedicationInput = it },
+                                    label = { Text("Medication", color = MutedGray, fontSize = 11.sp) },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFF737373),
+                                        unfocusedTextColor = Color(0xFF737373),
+                                        focusedBorderColor = SoftPurple,
+                                        unfocusedBorderColor = DarkBorder,
+                                        focusedContainerColor = DarkSurface,
+                                        unfocusedContainerColor = DarkSurface
+                                    ),
+                                    modifier = Modifier.weight(1.5f)
+                                )
+
+                                OutlinedTextField(
+                                    value = biologicalMgInput,
+                                    onValueChange = { biologicalMgInput = it },
+                                    label = { Text("mg", color = MutedGray, fontSize = 11.sp) },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFF737373),
+                                        unfocusedTextColor = Color(0xFF737373),
+                                        focusedBorderColor = SoftPurple,
+                                        unfocusedBorderColor = DarkBorder,
+                                        focusedContainerColor = DarkSurface,
+                                        unfocusedContainerColor = DarkSurface
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
                             }
                         }
                     }
@@ -3346,7 +3395,9 @@ modifier = Modifier.weight(1.2f)
                                     diagnoses = selectedDiagnoses,
                                     cortisoneName = "",
                                     cortisoneMg = "",
-                                    onXolair = onXolairInput
+                                    onXolair = onXolairInput,
+                                    biologicalMedication = biologicalMedicationInput.trim(),
+                                    biologicalMg = biologicalMgInput.trim()
                                 )
                                 Toast.makeText(context, "Profile updated: Pregnancy over", Toast.LENGTH_SHORT).show()
                             },
@@ -3656,7 +3707,7 @@ fun MedicationReminderDialog(
                         onClick = onDismiss,
                         modifier = Modifier.size(28.dp)
                     ) {
-                        Text("❌", color = Color.White, fontSize = 14.sp)
+                        Text("❌", color = SoftPurple, fontSize = 14.sp)
                     }
                 }
 
@@ -3699,7 +3750,7 @@ fun MedicationReminderDialog(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = reminder.medName,
-                                        color = Color.White,
+                                        color = SoftPurple,
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -3779,7 +3830,7 @@ fun MedicationReminderDialog(
                         // Med Selector
                         val selectedMedLabel = savedMeds.find { it.first == selectedMedId }?.second ?: "Select Medication"
 
-                        Text("Select Medication", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(bottom = 4.dp))
+                        Text("Select Medication", color = SoftPurple, fontSize = 11.sp, modifier = Modifier.padding(bottom = 4.dp))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -3793,7 +3844,7 @@ fun MedicationReminderDialog(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(selectedMedLabel, color = Color.White, fontSize = 12.sp)
+                                Text(selectedMedLabel, color = SoftPurple, fontSize = 12.sp)
                                 Text("▼", color = MutedGray, fontSize = 10.sp)
                             }
                             DropdownMenu(
@@ -3803,7 +3854,7 @@ fun MedicationReminderDialog(
                             ) {
                                 savedMeds.forEach { med ->
                                     DropdownMenuItem(
-                                        text = { Text(med.second, color = Color.White, fontSize = 12.sp) },
+                                        text = { Text(med.second, color = SoftPurple, fontSize = 12.sp) },
                                         onClick = {
                                             selectedMedId = med.first
                                             showMedDropdown = false
@@ -3816,7 +3867,7 @@ fun MedicationReminderDialog(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         // Schedule Type chips
-                        Text("Schedule Type", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(bottom = 6.dp))
+                        Text("Schedule Type", color = SoftPurple, fontSize = 11.sp, modifier = Modifier.padding(bottom = 6.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -3841,7 +3892,7 @@ fun MedicationReminderDialog(
                                 ) {
                                     Text(
                                         label,
-                                        color = if (isSelected) Color.Black else Color.White,
+                                        color = if (isSelected) Color.White else SoftPurple,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -3854,7 +3905,7 @@ fun MedicationReminderDialog(
                         // Schedule specifics
                         when (selectedScheduleType) {
                             "DAILY" -> {
-                                Text("Reminder Time", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(bottom = 4.dp))
+                                Text("Reminder Time", color = SoftPurple, fontSize = 11.sp, modifier = Modifier.padding(bottom = 4.dp))
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -3880,13 +3931,13 @@ fun MedicationReminderDialog(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(timeText, color = Color.White, fontSize = 12.sp)
+                                        Text(timeText, color = SoftPurple, fontSize = 12.sp)
                                         Text("🕒", fontSize = 14.sp)
                                     }
                                 }
                             }
                             "WEEKLY" -> {
-                                Text("Reminder Time", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(bottom = 4.dp))
+                                Text("Reminder Time", color = SoftPurple, fontSize = 11.sp, modifier = Modifier.padding(bottom = 4.dp))
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -3912,14 +3963,14 @@ fun MedicationReminderDialog(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(timeText, color = Color.White, fontSize = 12.sp)
+                                        Text(timeText, color = SoftPurple, fontSize = 12.sp)
                                         Text("🕒", fontSize = 14.sp)
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(12.dp))
 
-                                Text("Days of the Week", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(bottom = 6.dp))
+                                Text("Days of the Week", color = SoftPurple, fontSize = 11.sp, modifier = Modifier.padding(bottom = 6.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -3951,7 +4002,7 @@ fun MedicationReminderDialog(
                                         ) {
                                             Text(
                                                 daysLabels[dayVal - 1],
-                                                color = if (isSelected) Color.Black else Color.White,
+                                                color = if (isSelected) Color.White else SoftPurple,
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -3960,12 +4011,12 @@ fun MedicationReminderDialog(
                                 }
                             }
                             "INTERVAL" -> {
-                                Text("Interval (Hours)", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(bottom = 4.dp))
+                                Text("Interval (Hours)", color = SoftPurple, fontSize = 11.sp, modifier = Modifier.padding(bottom = 4.dp))
                                 OutlinedTextField(
                                     value = intervalHoursText,
                                     onValueChange = { intervalHoursText = it.filter { char -> char.isDigit() } },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 12.sp),
+                                    textStyle = androidx.compose.ui.text.TextStyle(color = SoftPurple, fontSize = 12.sp),
                                     singleLine = true,
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedBorderColor = SoftPurple,
@@ -4034,7 +4085,7 @@ fun MedicationReminderDialog(
                                 .fillMaxWidth()
                                 .height(38.dp)
                         ) {
-                            Text("Schedule Reminder", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Schedule Reminder", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

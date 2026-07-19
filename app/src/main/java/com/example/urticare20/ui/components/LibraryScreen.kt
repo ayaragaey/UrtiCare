@@ -1,4 +1,4 @@
-﻿package com.example.urticare20.ui.components
+package com.example.urticare20.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
@@ -71654,50 +71654,31 @@ fun LibraryScreen(onBack: () -> Unit = {}) {
                     )
                 }
 
-                // Ask Urti Premium Button
-                Card(
-                    onClick = { showLanguageSelector = true },
+                // Ask Urti Round Button
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .border(1.dp, SoftPurple.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
-                    colors = CardDefaults.cardColors(containerColor = DarkCard),
-                    shape = RoundedCornerShape(12.dp)
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Row(
+                    Image(
+                        painter = painterResource(id = R.drawable.urti_avatar),
+                        contentDescription = "Ask Urti",
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.urti_avatar),
-                            contentDescription = "Urti AI",
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Ask Urti",
-                                color = SoftPurple,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "AI chatbot trained on all Library articles",
-                                color = Color(0xFF1B8097),
-                                fontSize = 11.sp
-                            )
-                        }
-                        Text(
-                            text = "→",
-                            color = SoftPurple,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(DarkCard)
+                            .border(1.5.dp, SoftPurple.copy(alpha = 0.8f), CircleShape)
+                            .clickable { showLanguageSelector = true }
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Ask Urti",
+                        color = SoftPurple,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
                 }
 
                 // Collapsible Sections List
@@ -72254,7 +72235,7 @@ fun LibraryScreen(onBack: () -> Unit = {}) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(
-                                    text = "Urti AI Assistant",
+                                    text = "Urti",
                                     color = SoftPurple,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold

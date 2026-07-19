@@ -42,16 +42,26 @@ class PillWidgetProvider : AppWidgetProvider() {
             if (json.isNotEmpty()) {
                 try {
                     val array = JSONArray(json)
+                    var firstMedName: String? = null
+                    var firstMedMgs: String? = null
                     for (i in 0 until array.length()) {
                         val obj = array.getJSONObject(i)
+                        val name = obj.getString("name")
+                        val mgs = obj.getString("mgs")
+                        if (i == 0) {
+                            firstMedName = name
+                            firstMedMgs = mgs
+                        }
                         val isMain = if (obj.has("isMain")) obj.getBoolean("isMain") else false
                         if (isMain) {
-                            val name = obj.getString("name")
-                            val mgs = obj.getString("mgs")
                             medName = name
                             metadata = "$name:::$mgs"
                             break
                         }
+                    }
+                    if (metadata == null && firstMedName != null) {
+                        medName = firstMedName
+                        metadata = "$firstMedName:::$firstMedMgs"
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()

@@ -57,7 +57,8 @@ data class MilestoneAlert(
     val id: String,
     val type: MilestoneType,
     val message: String,
-    val borderHex: String
+    val borderHex: String,
+    val durationText: String
 )
 
 data class PendingStreakBreak(
@@ -104,6 +105,8 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     private val _archivedChats = MutableStateFlow<List<ChatSession>>(emptyList())
     val archivedChats: StateFlow<List<ChatSession>> = _archivedChats.asStateFlow()
 
+    val currentChatLanguage = MutableStateFlow("EN")
+
     val isUrtiTyping = mutableStateOf(false)
 
     // Dynamic advice repository lists loaded from assets
@@ -123,6 +126,8 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     val profileCortisoneName = MutableStateFlow(sharedPrefs.getString("profile_cortisone_name", "") ?: "")
     val profileCortisoneMg = MutableStateFlow(sharedPrefs.getString("profile_cortisone_mg", "") ?: "")
     val profileOnXolair = MutableStateFlow(sharedPrefs.getBoolean("profile_on_xolair", false))
+    val profileBiologicalMedication = MutableStateFlow(sharedPrefs.getString("profile_biological_medication", "") ?: "")
+    val profileBiologicalMg = MutableStateFlow(sharedPrefs.getString("profile_biological_mg", "") ?: "")
 
     private val _profileCortisones = MutableStateFlow<List<ProfileCortisone>>(emptyList())
     val profileCortisones: StateFlow<List<ProfileCortisone>> = _profileCortisones.asStateFlow()
@@ -188,7 +193,9 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         diagnoses: Set<String>,
         cortisoneName: String,
         cortisoneMg: String,
-        onXolair: Boolean
+        onXolair: Boolean,
+        biologicalMedication: String = "",
+        biologicalMg: String = ""
     ) {
         profileName.value = name
         profileBirthDate.value = birthDate
@@ -200,6 +207,8 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         profileCortisoneName.value = cortisoneName
         profileCortisoneMg.value = cortisoneMg
         profileOnXolair.value = onXolair
+        profileBiologicalMedication.value = biologicalMedication
+        profileBiologicalMg.value = biologicalMg
 
         sharedPrefs.edit()
             .putString("profile_name", name)
@@ -212,6 +221,8 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             .putString("profile_cortisone_name", cortisoneName)
             .putString("profile_cortisone_mg", cortisoneMg)
             .putBoolean("profile_on_xolair", onXolair)
+            .putString("profile_biological_medication", biologicalMedication)
+            .putString("profile_biological_mg", biologicalMg)
             .apply()
         
         cleanUpFlareUpMetadata()
@@ -729,12 +740,14 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                         val tierHours = t * 48L
                         if (tierHours > evaluatedCelebratedHours) {
                             val msg = com.example.urticare20.util.MilestoneEvaluator.getAdherenceSentence(t)
+                            val durationText = if (t == 1) "48 Hours Stability" else "${t * 2} Days Stability"
                             newAlerts.add(
                                 MilestoneAlert(
                                     id = UUID.randomUUID().toString(),
                                     type = MilestoneType.ADHERENCE,
                                     message = msg,
-                                    borderHex = "#99DDFF"
+                                    borderHex = "#99DDFF",
+                                    durationText = durationText
                                 )
                             )
                         }
@@ -780,12 +793,14 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                     for (t in 1..currentTier) {
                         if (t > evaluatedCelebratedWeeks) {
                             val msg = com.example.urticare20.util.MilestoneEvaluator.getRemissionSentence(t)
+                            val durationText = if (t == 1) "1 Week Remission" else "$t Weeks Remission"
                             newAlerts.add(
                                 MilestoneAlert(
                                     id = UUID.randomUUID().toString(),
                                     type = MilestoneType.REMISSION,
                                     message = msg,
-                                    borderHex = "#FFB3B3"
+                                    borderHex = "#FFB3B3",
+                                    durationText = durationText
                                 )
                             )
                         }
@@ -1198,6 +1213,8 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
         val archivesJson = sharedPrefs.getString("archived_chats", "") ?: ""
         _archivedChats.value = deserializeSessions(archivesJson)
+
+        currentChatLanguage.value = sharedPrefs.getString("current_chat_lang", "EN") ?: "EN"
     }
 
     private fun saveChatData() {
@@ -1207,13 +1224,38 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         sharedPrefs.edit()
             .putString("current_chat", currentJson)
             .putString("archived_chats", archivesJson)
+            .putString("current_chat_lang", currentChatLanguage.value)
             .apply()
+    }
+
+    fun getUrtiMainGreeting(lang: String): String {
+        return when (lang) {
+            "AR" -> "مرحباً! أورتي هنا من أجلك وهذا هو مساحتك الآمنة للتوقف، التنفيس، أو ببساطة التنفس."
+            "FR" -> "Salut! Urti est là pour vous et c'est votre espace de sécurité pour faire une pause, vous exprimer ou simplement respirer."
+            "ES" -> "¡Hola! Urti está aquí para ti y este es tu espacio seguro para hacer una pausa, desahogarte o simplemente respirar."
+            "IT" -> "Ciao! Urti è qui per te e questo è il tuo spazio sicuro per fare una pausa, sfogarti o semplicemente respirare."
+            "DE" -> "Hallo! Urti ist für dich da und dies ist dein sicherer Ort, um innezuhalten, dich auszusprechen oder einfach durchzuatmen."
+            "NL" -> "Hoi! Urti is er voor je en dit is jouw veilige plek om te pauzeren, je hart te luchten of gewoon te ademen."
+            else -> "Hi! Urti is here for you and this is your safe space to pause, vent, or simply breathe."
+        }
+    }
+
+    fun getUrtiMainContinuation(lang: String): String {
+        return when (lang) {
+            "AR" -> "أهلاً بك مجدداً! كيف تشعر الآن؟"
+            "FR" -> "Re-bonjour! Comment vous sentez-vous en ce moment?"
+            "ES" -> "¡Hola de nuevo! ¿Cómo te sientes en este momento?"
+            "IT" -> "Ciao ancora! Come ti senti in questo momento?"
+            "DE" -> "Hallo nochmal! Wie fühlst du dich gerade?"
+            "NL" -> "Hallo alweer! Hoe voel je je op dit moment?"
+            else -> "Hi again! How are things feeling right now?"
+        }
     }
 
     /**
      * Starts a new chat session. If clearPrevious is false, archives the current session.
      */
-    fun startNewChat(clearPrevious: Boolean) {
+    fun startNewChat(clearPrevious: Boolean, language: String) {
         val current = _currentChat.value
         val hasUserMessages = current.any { it.sender == "User" }
 
@@ -1231,16 +1273,20 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                 id = UUID.randomUUID().toString(),
                 title = titleDate,
                 startTime = ZonedDateTime.now().toString(),
-                messages = current
+                messages = current,
+                language = currentChatLanguage.value
             )
             _archivedChats.value = listOf(newArchive) + _archivedChats.value
         }
+
+        // Set the new language
+        currentChatLanguage.value = language
 
         // Initialize new chat with Urti's greeting message
         _currentChat.value = listOf(
             ChatMessage(
                 sender = "Urti",
-                text = "Hi! Urti is here for you and this is your safe space to pause, vent, or simply breathe.",
+                text = getUrtiMainGreeting(language),
                 timestamp = ZonedDateTime.now().toString()
             )
         )
@@ -1252,12 +1298,13 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
      */
     fun resumeLastChat() {
         val current = _currentChat.value.toMutableList()
+        val language = currentChatLanguage.value
         if (current.isEmpty()) {
             // Initialize if completely blank
             current.add(
                 ChatMessage(
                     sender = "Urti",
-                    text = "Hi! Urti is here for you and this is your safe space to pause, vent, or simply breathe.",
+                    text = getUrtiMainGreeting(language),
                     timestamp = ZonedDateTime.now().toString()
                 )
             )
@@ -1266,7 +1313,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             current.add(
                 ChatMessage(
                     sender = "Urti",
-                    text = "Hi again! How are things feeling right now?",
+                    text = getUrtiMainContinuation(language),
                     timestamp = ZonedDateTime.now().toString()
                 )
             )
@@ -1283,11 +1330,15 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         val index = archives.indexOfFirst { it.id == sessionId }
         if (index != -1) {
             val session = archives[index]
+            
+            // Set current chat language to the archived session's language
+            currentChatLanguage.value = session.language
+            
             val current = session.messages.toMutableList()
             current.add(
                 ChatMessage(
                     sender = "Urti",
-                    text = "Hi again! How are things feeling right now?",
+                    text = getUrtiMainContinuation(session.language),
                     timestamp = ZonedDateTime.now().toString()
                 )
             )
@@ -1333,12 +1384,16 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
      */
     fun containsStressSentiment(text: String): Boolean {
         val lowerText = text.lowercase()
-        val stressKeywords = listOf(
-            // Physical
-            "burning", "itching", "hives", "welts", "stinging",
-            // Emotional
-            "anxious", "panicking", "can't sleep", "overwhelmed", "exhausted"
-        )
+        val lang = currentChatLanguage.value
+        val stressKeywords = when (lang) {
+            "AR" -> listOf("حرق", "حكة", "شرى", "بثور", "لسع", "قلق", "هلع", "لا أستطيع النوم", "متعب", "منهك")
+            "FR" -> listOf("brûlure", "démangeaison", "urticaire", "plaques", "piqûre", "anxieux", "panique", "peux pas dormir", "submergé", "épuisé")
+            "ES" -> listOf("quemazón", "picazón", "urticaria", "ronchas", "picadura", "ansioso", "pánico", "puedo dormir", "abrumado", "agotado")
+            "IT" -> listOf("bruciore", "prurito", "orticaria", "pomfi", "puntura", "ansioso", "panico", "riesco a dormire", "sopraffatto", "esaurito")
+            "DE" -> listOf("brennen", "jucken", "urtikaria", "quaddeln", "stechen", "ängstlich", "panik", "kann nicht schlafen", "überwältigt", "erschöpft")
+            "NL" -> listOf("branden", "jeuk", "urticaria", "galbulten", "steken", "angstig", "paniek", "kan niet slapen", "overweldigd", "uitgeput")
+            else -> listOf("burning", "itching", "hives", "welts", "stinging", "anxious", "panicking", "can't sleep", "overwhelmed", "exhausted")
+        }
         return stressKeywords.any { lowerText.contains(it) }
     }
 
@@ -1435,23 +1490,242 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private fun translateAdvice(advice: String, lang: String): String {
+        if (lang == "EN") return advice
+        
+        val defaultAnxiety = "Practice Square-Breathing: Inhale for 4 seconds, hold for 4, exhale for 4, and rest at the bottom for 4."
+        val defaultStress = "Drop Your Shoulders: Intentionally unclamp your jaw, lower your shoulders, and relax your tongue."
+        val defaultBurnout = "Initiate an Emergency Pause: Stop running. Give yourself non-negotiable permission to rest."
+        val defaultPressure = "Enforce an Explicit Pause: When high pressure hits, take a deliberate timeout to lower your heart rate."
+
+        val translations = mapOf(
+            defaultAnxiety to mapOf(
+                "AR" to "تدرب على التنفس المربع: شهيق لمدة 4 ثوانٍ، كتم النفس لمدة 4 ثوانٍ، زفير لمدة 4 ثوانٍ، والاستراحة في الأسفل لمدة 4 ثوانٍ.",
+                "FR" to "Pratiquez la respiration carrée : inspirez pendant 4 secondes, maintenez pendant 4 secondes, expirez pendant 4 secondes et reposez-vous pendant 4 secondes.",
+                "ES" to "Practica la respiración cuadrada: inhala durante 4 segundos, mantén durante 4 segundos, exhala durante 4 segundos y descansa durante 4 segundos.",
+                "IT" to "Pratica la respirazione quadrata: inspira per 4 secondi, trattieni per 4 secondi, espira per 4 secondi e riposati per 4 secondi.",
+                "DE" to "Üben Sie die Quadratatmung: 4 Sekunden lang einatmen, 4 Sekunden lang anhalten, 4 Sekunden lang ausatmen und 4 Sekunden lang pausieren.",
+                "NL" to "Oefen vierkant ademhalen: adem 4 seconden in, houd 4 seconden vast, adem 4 seconden uit en rust 4 seconden."
+            ),
+            defaultStress to mapOf(
+                "AR" to "أرخِ كتفيك: أرخِ فكك عمدًا، وأنزل كتفيك، وأرح لسانك.",
+                "FR" to "Relâchez vos épaules : desserrez intentionnellement votre mâchoire, abaissez vos épaules et détendez votre langue.",
+                "ES" to "Deja caer tus hombros: relaja intencionadamente la mandíbula, baja los hombros y relaja la lengua.",
+                "IT" to "Rilassa le spalle: allenta intenzionalmente la mascella, abbassa le spalle e rilassa la lingua.",
+                "DE" to "Lassen Sie Ihre Schultern hängen: Lockern Sie bewusst Ihren Kiefer, senken Sie Ihre Schultern und entspannen Sie Ihre Zunge.",
+                "NL" to "Laat je schouders hangen: ontspan bewust je kaak, laat je schouders zakken en ontspan je tong."
+            ),
+            defaultBurnout to mapOf(
+                "AR" to "ابدأ توقفًا طارئًا: توقف عن الركض. امنح نفسك إذنًا غير قابل للتفاوض للراحة.",
+                "FR" to "Inities une pause d'urgence : arrêtez de courir. Donnez-vous la permission non négociable de vous reposer.",
+                "ES" to "Inicia una pausa de emergencia: deja de correr. Date permiso no negociable para descansar.",
+                "IT" to "Avvia una pausa di emergenza: smetti di correre. Concediti il permesso non negoziabile di riposare.",
+                "DE" to "Leiten Sie eine Notpause ein: Hören Sie auf zu rennen. Geben Sie sich selbst die unverhandelbare Erlaubnis, sich auszuruhen.",
+                "NL" to "Start een noodpauze: stop met rennen. Geef jezelf onvoorwaardelijke toestemming om te rusten."
+            ),
+            defaultPressure to mapOf(
+                "AR" to "فرض توقف صريح: عندما يشتد الضغط، خذ مهلة متعمدة لخفض معدل ضربات قلبك.",
+                "FR" to "Imposez une pause explicite : en cas de forte pression, faites une pause délibérée pour ralentir votre rythme cardiaque.",
+                "ES" to "Impón una pausa explícita: cuando sientas mucha presión, tómate un descanso deliberado para reducir tu ritmo cardíaco.",
+                "IT" to "Imponi una pausa esplicita: quando la pressione si fa sentire, prenditi una pausa deliberata per abbassare la frequenza cardiaca.",
+                "DE" to "Erzwingen Sie eine explizite Pause: Wenn hoher Druck herrscht, nehmen Sie sich eine bewusste Auszeit, um Ihre Herzfrequenz zu senken.",
+                "NL" to "Dwing een expliciete pauze af: als de druk oploopt, neem dan een bewuste time-out om je hartslag te verlagen."
+            ),
+            "Practice Square-Breathing: Inhale for 4 seconds, hold for 4, exhale for 4, and rest at the bottom for 4. Repeat 3 to 4 times to disrupt an active histamine cascade." to mapOf(
+                "AR" to "تدرب على التنفس المربع: شهيق لمدة 4 ثوانٍ، كتم النفس لمدة 4 ثوانٍ، زفير لمدة 4 ثوانٍ، والاستراحة في الأسفل لمدة 4 ثوانٍ. كرر ذلك 3 إلى 4 مرات لتعطيل تدفق الهستامين النشط.",
+                "FR" to "Pratiquez la respiration carrée : inspirez pendant 4 secondes, maintenez pendant 4 secondes, expirez pendant 4 secondes et reposez-vous pendant 4 secondes. Répétez 3 à 4 fois pour perturber une cascade d'histamine active.",
+                "ES" to "Practica la respiración cuadrada: inhala durante 4 segundos, mantén durante 4 segundos, exhala durante 4 segundos y descansa durante 4 segundos. Repite de 3 a 4 veces para interrumpir una cascada de histamina activa.",
+                "IT" to "Pratica la respirazione quadrata: inspira per 4 secondi, trattieni per 4 secondi, espira per 4 secondi e riposati per 4 secondi. Ripeti da 3 a 4 volte per interrompere una cascata di istamina attiva.",
+                "DE" to "Üben Sie die Quadratatmung: 4 Sekunden lang einatmen, 4 Sekunden lang anhalten, 4 Sekunden lang ausatmen und 4 Sekunden lang pausieren. Wiederholen Sie dies 3 bis 4 Mal, um eine aktive Histaminkaskade zu unterbrechen.",
+                "NL" to "Oefen vierkant ademhalen: adem 4 seconden in, houd 4 seconden vast, adem 4 seconden uit en rust 4 seconden. Herhaal 3 tot 4 keer om een actieve histaminecascade te verstoren."
+            ),
+            "Acknowledge Present Safety: Remind yourself: \"In this exact moment, I am safe, I am grounded, and I am completely in control of my next step.\"" to mapOf(
+                "AR" to "اعتراف بالأمان الحالي: ذكر نفسك: \"في هذه اللحظة بالذات، أنا آمن، أنا ثابت، وأنا مسيطر تمامًا على خطوتي التالية.\"",
+                "FR" to "Reconnaissez votre sécurité actuelle : Rappelez-vous : \"En ce moment précis, je suis en sécurité, je suis ancré et je contrôle totalement ma prochaine étape.\"",
+                "ES" to "Reconoce tu seguridad actual: Recuerda: \"En este preciso momento, estoy a salvo, conectado a tierra y tengo el control absoluto de mi próximo paso.\"",
+                "IT" to "Riconosci la tua sicurezza attuale: Ricorda a te stesso: \"In questo preciso momento sono al sicuro, sono radicato e ho il controllo totale del mio prossimo passo.\"",
+                "DE" to "Erkennen Sie die gegenwärtige Sicherheit an: Erinnern Sie sich selbst: „In diesem exakten Moment bin ich in Sicherheit, geerdet und habe die volle Kontrolle über meinen nächsten Schritt.“",
+                "NL" to "Erken de huidige veiligheid: Herinner jezelf eraan: \"Op dit exacte moment ben ik veilig, ben ik geaard en heb ik de volledige controle over mijn volgende stap.\""
+            ),
+            "Shrink the Mountain: You don't have to figure out the whole mountain right now; just focus on the very next step in front of you." to mapOf(
+                "AR" to "صغّر الجبل: ليس عليك معرفة الجبل بأكمله الآن؛ فقط ركز على الخطوة التالية أمامك مباشرة.",
+                "FR" to "Réduisez la montagne : vous n'avez pas besoin de comprendre toute la montagne pour le moment ; concentrez-vous simplement sur la toute prochaine étape devant vous.",
+                "ES" to "Reduce la montaña: no tienes que descifrar toda la montaña ahora mismo; solo concéntrate en el siguiente paso que tienes por delante.",
+                "IT" to "Rimpicciolisci la montagna: non devi scalare l'intera montagna in questo momento; concentrati solo sul passo successivo direttamente di fronte a te.",
+                "DE" to "Verkleinern Sie den Berg: Sie müssen nicht gleich den ganzen Berg bezwingen; konzentrieren Sie sich einfach auf den allernächsten Schritt vor Ihnen.",
+                "NL" to "Maak de berg kleiner: je hoeft nu niet de hele berg te overzien; concentreer je gewoon op de allereerste volgende stap voor je."
+            ),
+            "Anchor in the Minute: The future will handle itself. Your only job right now is to anchor yourself in this exact minute." to mapOf(
+                "AR" to "ثبّت نفسك في الدقيقة الحالية: سيهتم المستقبل بنفسه. وظيفتك الوحيدة الآن هي تثبيت نفسك في هذه الدقيقة بالذات.",
+                "FR" to "Ancrez-vous dans la minute : l'avenir s'occupera de lui-même. Votre seul travail en ce moment est de vous ancrer dans cette minute précise.",
+                "ES" to "Anclate en el minuto: el futuro se cuidará solo. Tu único trabajo en este momento es anclarte en este minuto exacto.",
+                "IT" to "Ancorati al minuto: il futuro si gestirà da solo. Il tuo unico compito in questo momento é ancorarti a questo preciso minuto.",
+                "DE" to "Verankern Sie sich in der Minute: Die Zukunft wird sich um sich selbst kümmern. Ihre einzige Aufgabe im Moment ist es, sich in dieser exakten Minute zu verankern.",
+                "NL" to "Anker in de minuut: de toekomst regelt zichzelf. Je enige taak nu is om jezelf in deze exacte minuut te verankeren."
+            ),
+            "Focus on Controllables: Let go of what you cannot control right now, and pour your energy into what you can." to mapOf(
+                "AR" to "التركيز على ما يمكنك التحكم به: اترك ما لا يمكنك التحكم فيه الآن، وصب طاقتك فيما يمكنك التحكم فيه.",
+                "FR" to "Concentrez-vous sur ce qui est contrôlable : Lâchez ce que vous ne pouvez pas contrôler pour le moment et concentrez votre énergie sur ce que vous pouvez contrôler.",
+                "ES" to "Concéntrate en lo que puedes controlar: deja ir lo que no puedes controlar en este momento y vierte tu energía en lo que sí puedes.",
+                "IT" to "Concentrati su ciò che puoi controllare: lascia andare ciò che non puoi controllare in questo momento e riversa le tue energie in ciò che puoi.",
+                "DE" to "Konzentrieren Sie sich auf das Kontrollierbare: Lassen Sie los, was Sie gerade nicht kontrollieren können, und stecken Sie Ihre Energie in das, was Sie können.",
+                "NL" to "Focus op wat je kunt controleren: laat los wat je nu niet kunt controleren en steek je energie in wat je wel kunt."
+            ),
+            "Engage a 5-4-3-2-1 Sensory Check: Name 5 things you can see, 4 you can touch, 3 you can hear, 2 you can smell, and 1 you can taste to stop a panic loop." to mapOf(
+                "AR" to "قم بفحص حسي 5-4-3-2-1: سمِّ 5 أشياء يمكنك رؤيتها، و4 يمكنك لمسها، و3 يمكنك سماعها، و2 يمكنك شمها، و1 يمكنك تذوقها لإيقاف حلقة الذعر.",
+                "FR" to "Engagez un contrôle sensoriel 5-4-3-2-1 : Nommez 5 choses que vous pouvez voir, 4 que vous pouvez toucher, 3 que vous pouvez entendre, 2 que vous pouvez sentir et 1 que vous pouvez goûter pour arrêter une boucle de panique.",
+                "ES" to "Realiza un control sensorial 5-4-3-2-1: nombra 5 cosas que puedas ver, 4 que puedas tocar, 3 que puedas oír, 2 que puedas oler y 1 que puedas probar para detener un bucle de pánico.",
+                "IT" to "Esegui un controllo sensoriale 5-4-3-2-1: nomina 5 cose che puoi vedere, 4 che puoi toccare, 3 che puoi sentire, 2 che puoi odorare e 1 che puoi gustare per fermare un ciclo di panico.",
+                "DE" to "Führen Sie einen sensorischen 5-4-3-2-1-Check durch: Nennen Sie 5 Dinge, die Sie sehen können, 4, die Sie berühren können, 3, die Sie hören können, 2, die Sie riechen können, und 1, das Sie schmecken können, um eine Panikschleife zu stoppen.",
+                "NL" to "Voer een 5-4-3-2-1 zintuiglijke controle uit: noem 5 dingen die je kunt zien, 4 die je kunt aanraken, 3 die je kunt horen, 2 die je kunt ruiken en 1 die je kunt proeven om een panieklus te stoppen."
+            ),
+            "Cool Your Body Temperature: Splash cold water on your face or hold an ice pack to stimulate the vagus nerve and slow your heart rate." to mapOf(
+                "AR" to "برد درجة حرارة جسمك: رش الماء البارد على وجهك أو ضع كيس ثلج لتحفيز العصب الحائر وإبطاء معدل ضربات قلبك.",
+                "FR" to "Refroidissez votre température corporelle : aspergez votre visage d'eau froide ou appliquez une poche de glace pour stimuler le nerf vague et ralentir votre rythme cardiaque.",
+                "ES" to "Enfría tu temperatura corporal: salpica agua fría en tu cara o sostén una bolsa de hielo para estimular el nervio vago y ralentizar tu ritmo cardíaco.",
+                "IT" to "Raffredda la temperatura corporea: spruzza acqua fredda sul viso o tieni una borsa del ghiaccio per stimolare il nervo vago e rallentare la frequenza cardiaca.",
+                "DE" to "Kühlen Sie Ihre Körpertemperatur ab: Spritzen Sie kaltes Wasser auf Ihr Gesicht oder halten Sie einen Eisbeutel, um den Vagusnerv zu stimulieren und Ihre Herzfrequenz zu senken.",
+                "NL" to "Koel je lichaamstemperatuur af: sprenkel koud water op je gezicht of houd een ijspak vast om de nervus vagus te stimuleren en je hartslag te verlagen."
+            ),
+            "Trust Your Resilience: Remind yourself that you have successfully survived 100% of your hardest days so far." to mapOf(
+                "AR" to "ثق بمرونتك: ذكر نفسك أنك نجحت في البقاء على قيد الحياة في 100% من أصعب أيامك حتى الآن.",
+                "FR" to "Faites confiance à votre résilience : Rappelez-vous que vous avez survécu avec succès à 100 % de vos jours les plus difficiles jusqu'à présent.",
+                "ES" to "Confía en tu resiliencia: recuerda que has sobrevivido con el 100 % de tus días más difíciles hasta ahora.",
+                "IT" to "Fidati della tua resilienza: ricorda a te stesso che finora sei sopravvissuto con successo al 100% dei tuoi giorni più difficili.",
+                "DE" to "Vertrauen Sie auf Ihre Resilienz: Erinnern Sie sich daran, dass Sie bisher 100 % Ihrer schwersten Tage erfolgreich überstanden haben.",
+                "NL" to "Vertrouw op je veerkracht: herinner jezelf eraan dat je tot nu toe 100% van je moeilijkste dagen met succes hebt overleefd."
+            ),
+            "Interrupt the Feedback Loop: Recognize that stress and physical pain feed each other. Disrupting the emotional panic breaks the biological cycle." to mapOf(
+                "AR" to "قاطع حلقة التغذية الراجعة: أدرك أن التوتر والألم الجسدي يغذي كل منهما الآخر. يؤدي تعطيل الذعر العاطفي إلى كسر الدورة البيولوجية.",
+                "FR" to "Interrompez la boucle de rétroaction : reconnaissez que le stress et la douleur physique se nourrissent mutuellement. Perturber la panique émotionnelle brise le cycle biologique.",
+                "ES" to "Interrumpe el bucle de retroalimentación: reconoce que el estrés y el dolor físico se alimentan mutuamente. Interrumpir el pánico emocional rompe el ciclo biológico.",
+                "IT" to "Interrompi il ciclo di feedback: riconosci che lo stress e il dolore fisico si alimentano a vicenda. Interrompere il panico emotivo spezza il ciclo biologico.",
+                "DE" to "Unterbrechen Sie die Feedbackschleife: Erkennen Sie, dass Stress und körperlicher Schmerz sich gegenseitig nähren. Die Unterbrechung der emotionalen Panik durchbricht den biologischen Kreislauf.",
+                "NL" to "Onderbreek de feedbacklus: erken dat stress en fysieke pijn elkaar voeden. Het doorbreken van de emotionele paniek doorbreekt de biologische cyclus."
+            ),
+            "Commit to the 4-Second Hold: Use the holding phases of square-breathing to physically signal your vagus nerve to stop dumping stress hormones." to mapOf(
+                "AR" to "التزم بكتم النفس لمدة 4 ثوانٍ: استخدم مراحل كتم النفس في التنشن المربع لإرسال إشارة جسدية إلى العصب الحائر لوقف إفراز هرمونات التوتر.",
+                "FR" to "Engagez-vous à maintenir pendant 4 secondes : utilisez les phases de maintien de la respiration carrée pour signaler physiquement à votre nerf vague d'arrêter de libérer des hormones de stress.",
+                "ES" to "Comprométete a mantener la respiración durante 4 segundos: utiliza las fases de retención de la respiración cuadrada para indicar físicamente a tu nervio vago que deje de liberar hormonas del estrés.",
+                "IT" to "Impegnati a trattenere il respiro per 4 secondi: usa le fasi di apnea della respirazione quadrata per segnalare fisicamente al tuo nervo vago di smettere di rilasciare ormoni dello stress.",
+                "DE" to "Verpflichten Sie sich zum 4-Sekunden-Anhalten: Nutzen Sie die Haltephasen der Quadratatmung, um Ihrem Vagusnerv physisch zu signalisieren, die Ausschüttung von Stresshormonen zu stoppen.",
+                "NL" to "Houd je aan de 4 seconden vasthouden: gebruik de vasthoudfasen van de vierkante ademhaling om je nervus vagus fysiek te signaleren dat hij moet stoppen met het afgeven van stresshormonen."
+            ),
+            "Drop Your Shoulders: Intentionally unclamp your jaw, lower your shoulders away from your ears, and relax your tongue from the roof of your mouth." to mapOf(
+                "AR" to "أرخِ كتفيك: أرخِ فكك عمدًا، وأنزل كتفيك بعيدًا عن أذنيك، وأرح لسانك من سقف فمك.",
+                "FR" to "Relâchez vos épaules : desserrez intentionnellement votre mâchoire, abaissez vos épaules loin de vos oreilles et détendez votre langue du palais.",
+                "ES" to "Deja caer tus hombros: relaja intencionadamente la mandíbula, baja los hombros alejándolos de las orejas y relaja la lengua del paladar.",
+                "IT" to "Rilassa le spalle: allenta intenzionalmente la mascella, allontana le spalle dalle orecchie e allontana la lingua dal palato.",
+                "DE" to "Lassen Sie Ihre Schultern hängen: Lockern Sie bewusst Ihren Kiefer, senken Sie Ihre Schultern weit weg von Ihren Ohren und lösen Sie Ihre Zunge vom Gaumen.",
+                "NL" to "Laat je schouders hangen: ontspan bewust je kaak, laat je schouders zakken, weg van je oren, en haal je tong van je gehemelte."
+            ),
+            "Initiate an Emergency Pause: Stop running. When you are burned out, your first assignment is to stop trying to force your normal pace." to mapOf(
+                "AR" to "ابدأ توقفًا طارئًا: توقف عن الركض. عندما تكون محترقًا نفسيًا، فإن مهمتك الأولى هي التوقف عن محاولة فرض وتيرتك العادية.",
+                "FR" to "Inities une pause d'urgence : arrêtez de courir. Lorsque vous êtes épuisé, votre première tâche consiste à cesser d'essayer de forcer votre rythme habituel.",
+                "ES" to "Inicia una pausa de emergencia: deja de correr. Cuando estés agotado, tu primera tarea es dejar de intentar forzar tu ritmo normal.",
+                "IT" to "Avvia una pausa di emergenza: smetti di correre. Quando sei in burnout, il tuo primo compito è smettere di sforzarti di mantenere il tuo ritmo normale.",
+                "DE" to "Leiten Sie eine Notpause ein: Hören Sie auf zu rennen. Wenn Sie ausgebrannt sind, besteht Ihre erste Aufgabe darin, nicht mehr zu versuchen, Ihr normales Tempo zu erzwingen.",
+                "NL" to "Start een noodpauze: stop met rennen. Als je opgebrand bent, is je eerste taak om te stoppen met het forceren van je normale tempo."
+            ),
+            "Accept the Exhaustion: Stop fighting the fatigue. Admitting that your condition is physically punishing and mentally exhausting is the first step." to mapOf(
+                "AR" to "تقبل الإرهاق: توقف عن محاربة التعب. الاعتراف بأن حالتك عقاب جسدي ومرهقة عقليًا هو الخطوة الأولى.",
+                "FR" to "Acceptez l'épuisement : arrêtez de combattre la fatigue. Admettre que votre état est physiquement éprouvant et mentalement épuisant est la première étape.",
+                "ES" to "Acepta el agotamiento: deja de luchar contra la fatiga. Admitir que tu condición es físicamente castigadora y mentalmente agotadora es el primer paso.",
+                "IT" to "Accetta l'esaurimento: smetti di combattere la fatica. Ammettere che la tua condizione è fisicamente punitiva e mentalmente estenuante è il primo passo.",
+                "DE" to "Akzeptieren Sie die Erschöpfung: Hören Sie auf, gegen die Müdigkeit anzukämpfen. Zuzugeben, dass Ihr Zustand körperlich anstrengend und geistig erschöpfend ist, ist der erste Schritt.",
+                "NL" to "Accepteer de uitputting: stop met vechten tegen de vermoeidheid. Toeven dat je toestand fysiek slopend en mentaal uitputtend is, is de eerste stap."
+            ),
+            "Drop the Guilt: You are not lazy; you are empty. Give yourself absolute, non-negotiable permission to rest without self-reproach." to mapOf(
+                "AR" to "تخلص من الذنب: أنت لست كسولاً؛ أنت فارغ فقط. امنح نفسك إذنًا مطلقًا وغير قابل للتفاوض للراحة دون لوم نفسك.",
+                "FR" to "Abandonnez la culpabilité : vous n'êtes pas paresseux ; vous êtes vide. Donnez-vous la permission absolue et non négociable de vous reposer sans culpabiliser.",
+                "ES" to "Olvídate de la culpa: no eres perezoso; estás vacío. Date permiso absoluto y no negociable para descansar sin reproches.",
+                "IT" to "Metti da parte il senso di colpa: non sei pigro; sei solo vuoto. Concediti il permesso assoluto e non negoziabile di riposare senza rimproverarti.",
+                "DE" to "Legen Sie die Schuldgefühle ab: Sie sind nicht faul; Sie sind leer. Geben Sie sich selbst die absolute, unverhandelbare Erlaubnis, sich ohne Selbstvorwürfe auszuruhen.",
+                "NL" to "Laat het schuldgevoel los: je bent niet lui; je bent leeg. Geef jezelf absolute, niet-onderhandelbare toestemming om te rusten zonder zelfverwijt."
+            ),
+            "Enforce an Explicit Pause: When high pressure hits, take a deliberate timeout to lower your heart rate before responding." to mapOf(
+                "AR" to "فرض توقف صريح: عندما يشتد الضغط، خذ مهلة متعمدة لخفض معدل ضربات قلبك قبل الرد.",
+                "FR" to "Imposez une pause explicite : en cas de forte pression, faites une pause délibérée pour ralentir votre rythme cardiaque avant de répondre.",
+                "ES" to "Impón una pausa explícita: cuando sientas mucha presión, tómate un descanso deliberado para reducir tu ritmo cardíaco antes de responder.",
+                "IT" to "Imponi una pausa esplicita: quando la pressione si fa sentire, prenditi una pausa deliberata per abbassare la frequenza cardiaca prima di rispondere.",
+                "DE" to "Erzwingen Sie eine explizite Pause: Wenn hoher Druck herrscht, nehmen Sie sich eine bewusste Auszeit, um Ihre Herzfrequenz zu senken, bevor Sie reagieren.",
+                "NL" to "Dwing een expliciete pauze af: als de druk oploopt, neem dan een bewuste time-out om je hartslag te verlagen voordat je reageert."
+            ),
+            "Execute Your Breathing Tool: Use structured square-breathing to physically disrupt the active stress cascade." to mapOf(
+                "AR" to "نفذ أداة التنفس الخاصة بك: استخدم التنفس المربع المنظم لتعطيل تدفق الضغط النشط جسديًا.",
+                "FR" to "Exécutez votre outil de respiration : utilisez une respiration carrée structurée pour perturber physiquement la cascade de stress active.",
+                "ES" to "Ejecuta tu herramienta de respiración: utiliza la respiración cuadrada estructurada para interrumpir físicamente la cascada de estrés activa.",
+                "IT" to "Usa lo strumento di respirazione: utilizza la respirazione quadrata strutturata per interrompere fisicamente la cascata di stress attiva.",
+                "DE" to "Nutzen Sie Ihre Atemübung: Verwenden Sie die strukturierte Quadratatmung, um die aktive Stresskaskade physisch zu unterbrechen.",
+                "NL" to "Gebruik je ademhalingstool: gebruik gestructureerde vierkante ademhaling om de actieve stresscascade fysiek te verstoren."
+            ),
+            "Anchor in Real-Time Safety: Ground yourself by stating clearly: \"In this exact moment, I am safe, I am stable, and I am in control of my very next step.\"" to mapOf(
+                "AR" to "الترسيخ في الأمان الفعلي: ثبّت نفسك بالقول بوضوح: \"في هذه اللحظة بالذات، أنا آمن، أنا مستقر، وأنا مسيطر على خطوتي التالية مباشرة.\"",
+                "FR" to "Ancrez-vous dans la sécurité en temps réel : Ancrez-vous en affirmant clairement : \"En ce moment précis, je suis en sécurité, je suis stable et je contrôle ma toute prochaine étape.\"",
+                "ES" to "Anclate en la seguridad en tiempo real: conéctate afirmando claramente: \"En este preciso momento, estoy a salvo, estable y tengo el control de mi próximo paso inmediato\".",
+                "IT" to "Ancorati alla sicurezza in tempo reale: radicati affermando chiaramente: \"In questo preciso momento sono al sicuro, sono stabile e ho il controllo del mio prossimo passo.\"",
+                "DE" to "Verankern Sie sich in der Echtzeit-Sicherheit: Erden Sie sich, indem Sie klar sagen: „In diesem exakten Moment bin ich in Sicherheit, ich bin stabil und ich kontrolliere meinen allernächsten Schritt.“",
+                "NL" to "Anker in real-time veiligheid: aard jezelf door duidelijk te stellen: \"Op dit exacte moment ben ik veilig, stabiel en heb ik de controle over mijn allereerste volgende stap.\""
+            )
+        )
+        val translatedMap = translations[advice]
+        return translatedMap?.get(lang) ?: advice
+    }
+
     private fun getUrtiResponse(userText: String): String {
         // Compile the comprehensive 3-Layer context block dynamically
         val contextBlock = contextAssembler.assembleContextBlock(_currentChat.value)
         val text = userText.lowercase()
+        val lang = currentChatLanguage.value
 
         // 1. Safety Bound Intercept check
-        val isSafetySwelling = text.contains("throat") || text.contains("swelling") || 
-                               text.contains("tongue") || text.contains("breathing") || 
-                               text.contains("tightness") || text.contains("choking")
+        val isSafetySwelling = when (lang) {
+            "AR" -> text.contains("حلق") || text.contains("توزم") || text.contains("تورم") || 
+                    text.contains("لسان") || text.contains("تنفس") || 
+                    text.contains("ضيق") || text.contains("اختناق")
+            "FR" -> text.contains("gorge") || text.contains("gonflement") || 
+                    text.contains("langue") || text.contains("respiration") || 
+                    text.contains("oppression") || text.contains("serrement") || text.contains("étouffement")
+            "ES" -> text.contains("garganta") || text.contains("hinchazón") || 
+                    text.contains("lengua") || text.contains("respiración") || 
+                    text.contains("opresión") || text.contains("asfixia") || text.contains("ahogo")
+            "IT" -> text.contains("gola") || text.contains("gonfiore") || 
+                    text.contains("lingua") || text.contains("respirazione") || 
+                    text.contains("oppressione") || text.contains("soffocamento")
+            "DE" -> text.contains("hals") || text.contains("kehle") || text.contains("schwellung") || 
+                    text.contains("zunge") || text.contains("atmung") || 
+                    text.contains("enge") || text.contains("erstickung")
+            "NL" -> text.contains("keel") || text.contains("zwelling") || 
+                    text.contains("tong") || text.contains("ademhaling") || 
+                    text.contains("beklemming") || text.contains("verstikking")
+            else -> text.contains("throat") || text.contains("swelling") || 
+                    text.contains("tongue") || text.contains("breathing") || 
+                    text.contains("tightness") || text.contains("choking")
+        }
         if (isSafetySwelling) {
-            return "I hear how frightening this is, but since you mentioned swelling or difficulty breathing, this could be a severe, life-threatening allergic reaction (anaphylaxis). Please seek immediate professional medical care or call emergency services right now. Your physical safety is the absolute first priority. Urti is holding space for you, but please contact emergency services immediately."
+            return when (lang) {
+                "AR" -> "أسمع كم هذا مخيف، ولكن بما أنك ذكرت تورمًا أو صعوبة في التنفس، فقد يكون هذا تفاعلًا تحسسيًا شديدًا يهدد الحياة (حساسية مفرطة). يرجى طلب الرعاية الطبية الفورية أو الاتصال بخدمات الطوارئ الآن. سلامتك الجسدية هي الأولوية القصوى المطلقة. أورتي يساندك، ولكن يرجى الاتصال بخدمات الطوارئ على الفور."
+                "FR" -> "Je comprends à quel point c'est effrayant, mais comme vous avez mentionné un gonflement ou des difficultés respiratoires, il pourrait s'agir d'une réaction allergique grave et potentiellement mortelle (anaphylaxie). Veuillez consulter immédiatement un médecin professionnel ou appeler les services d'urgence dès maintenant. Votre sécurité physique est la priorité absolue. Urti est là pour vous soutenir, mais veuillez contacter les services d'urgence immédiatement."
+                "ES" -> "Entiendo lo aterrador que es esto, pero como mencionaste hinchazón o dificultad para respirar, esto podría ser una reacción alérgica grave y potencialmente mortal (anafilaxia). Por favor, busca atención médica profesional inmediata o llama a los servicios de emergencia ahora mismo. Tu seguridad física es la prioridad absoluta. Urti te acompaña, pero por favor contacta a los servicios de emergencia de inmediato."
+                "IT" -> "Capisco quanto sia spaventoso, ma poiché hai menzionato gonfiore o difficoltà respiratorie, potrebbe trattarsi di una reazione allergica grave e potenzialmente letale (anafilassi). Si prega di cercare immediatamente assistenza medica professionale o di chiamare subito i servizi di emergenza. La tua sicurezza fisica è l'assoluta priorità. Urti è qui per te, ma contatta immediatamente i servizi di emergenza."
+                "DE" -> "Ich verstehe, wie beängstigend das ist, aber da Sie eine Schwellung oder Atembeschwerden erwähnt haben, könnte dies eine schwere, lebensbedrohliche allergische Reaktion (Anaphylaxie) sein. Bitte suchen Sie sofort professionelle medizinische Hilfe auf oder rufen Sie jetzt den Notruf an. Ihre körperliche Sicherheit hat die allerhöchste Priorität. Urti is für Sie da, aber bitte wenden Sie sich sofort an den Rettungsdienst."
+                "NL" -> "Ik begrijp hoe beangstigend dit is, maar aangezien je zwelling of ademhalingsmoeilijkheden noemde, kan dit een ernstige, levensbedreigende allergische reactie (anafylaxie) zijn. Zoek onmiddellijk professionele medische hulp of bel nu de hulpdiensten. Je fysieke veiligheid is de allerhoogste prioriteit. Urti is er voor je, maar neem direct contact op met de hulpdiensten."
+                else -> "I hear how frightening this is, but since you mentioned swelling or difficulty breathing, this could be a severe, life-threatening allergic reaction (anaphylaxis). Please seek immediate professional medical care or call emergency services right now. Your physical safety is the absolute first priority. Urti is holding space for you, but please contact emergency services immediately."
+            }
         }
 
         // 2. Compliance Alerts check (Unsafe window < 8 hours)
         val hasMedicationIntervalWarning = contextBlock.contains("CRITICAL MEDICATION ALERT")
         val complianceWarningText = if (hasMedicationIntervalWarning) {
-            "\n\n*Note from Urti: I noticed your recent medication entries were logged less than 8 hours apart. Please be gentle with your body and make sure you are following safe dosing protocols.*"
+            when (lang) {
+                "AR" -> "\n\n*ملاحظة من أورتي: لاحظت أن إدخالات الأدوية الأخيرة تم تسجيلها في فترة أقل من 8 ساعات. يرجى أن تكون لطيفًا مع جسدك والتأكد من اتباع بروتوكولات الجرعات الآمنة.*"
+                "FR" -> "\n\n*Note d'Urti : J'ai remarqué que vos dernières prises de médicaments ont été enregistrées à moins de 8 heures d'intervalle. S'il vous plaît, soyez doux avec votre corps et assurez-vous de suivre des protocoles de dosage sûrs.*"
+                "ES" -> "\n\n*Nota de Urti: Noté que tus registros recientes de medicamentos se realizaron con menos de 8 horas de diferencia. Por favor, sé amable con tu cuerpo y asegúrate de seguir protocolos de dosificación seguros.*"
+                "IT" -> "\n\n*Nota di Urti: Ho notato che le tue recenti registrazioni di farmaci sono state inserite a meno di 8 ore di distanza. Sii gentile con il tuo corpo e assicurati di seguire protocolli di dosaggio sicuri.*"
+                "DE" -> "\n\n*Hinweis von Urti: Ich habe bemerkt, dass Ihre letzten Medikamenteneinträge weniger als 8 Stunden auseinander lagen. Bitte gehen Sie schonend mit Ihrem Körper um und stellen Sie sicher, dass Sie sichere Dosierungsprotokolle befolgen.*"
+                "NL" -> "\n\n*Opmerking van Urti: Ik merkte dat je recente medicatie-invoer minder dan 8 uur uit elkaar lag. Wees voorzichtig met je lichaam en zorg ervoor dat je veilige doseringsprotocollen volgt.*"
+                else -> "\n\n*Note from Urti: I noticed your recent medication entries were logged less than 8 hours apart. Please be gentle with your body and make sure you are following safe dosing protocols.*"
+            }
         } else {
             ""
         }
@@ -1461,14 +1735,71 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             val lastLog = dbHelper.getAllEntries().firstOrNull()
             if (lastLog != null) {
                 val actionDesc = when (lastLog.type) {
-                    EntryType.FLARE_UP -> "I noticed you logged a Flare-up recently."
-                    EntryType.ANTIHISTAMINE -> "I noticed you logged taking an Antihistamine recently."
-                    EntryType.CORTISONE -> "I see you logged a Cortisone dose recently."
-                    EntryType.XOLAIR_150 -> "I see you logged your Xolair 150 mg injection recently."
-                    EntryType.XOLAIR_300 -> "I see you logged your Xolair 300 mg injection recently."
-                    EntryType.ALTERNATIVE -> "I noticed you logged alternative medication (${lastLog.metadata ?: "Unnamed"}) recently."
+                    EntryType.FLARE_UP -> when (lang) {
+                        "AR" -> "لقد لاحظت أنك قمت بتسجيل نوبة تهيج مؤخرًا."
+                        "FR" -> "J'ai remarqué que vous avez enregistré une poussée récemment."
+                        "ES" -> "Noté que registraste un brote recientemente."
+                        "IT" -> "Ho notato che hai registrato una riacutizzazione di recente."
+                        "DE" -> "Ich habe bemerkt, dass Sie kürzlich einen Schub protokolliert haben."
+                        "NL" -> "Ik merkte dat je onlangs een opvlamming hebt gelogd."
+                        else -> "I noticed you logged a Flare-up recently."
+                    }
+                    EntryType.ANTIHISTAMINE -> when (lang) {
+                        "AR" -> "لقد لاحظت أنك قمت بتسجيل تناول مضاد للهستامين مؤخرًا."
+                        "FR" -> "J'ai remarqué que vous avez enregistré la prise d'un antihistaminique récemment."
+                        "ES" -> "Noté que registraste haber tomado un antihistamínico recientemente."
+                        "IT" -> "Ho notato che hai registrato l'assunzione di un antistaminico di recente."
+                        "DE" -> "Ich habe bemerkt, dass Sie kürzlich die Einnahme eines Antihistaminikums protokolliert haben."
+                        "NL" -> "Ik merkte dat je onlangs het innemen van een antihistaminicum hebt gelogd."
+                        else -> "I noticed you logged taking an Antihistamine recently."
+                    }
+                    EntryType.CORTISONE -> when (lang) {
+                        "AR" -> "أرى أنك قمت بتسجيل جرعة كورتيزون مؤخرًا."
+                        "FR" -> "Je vois que vous avez enregistré une dose de cortisone récemment."
+                        "ES" -> "Veo que registraste una dosis de cortisona recientemente."
+                        "IT" -> "Vedo che hai registrato una dose di cortisone di recente."
+                        "DE" -> "Ich sehe, Sie haben kürzlich eine Kortisondosis protokolliert."
+                        "NL" -> "Ik zie dat je onlangs een dosis cortison hebt gelogd."
+                        else -> "I see you logged a Cortisone dose recently."
+                    }
+                    EntryType.XOLAIR_150 -> when (lang) {
+                        "AR" -> "أرى أنك قمت بتسجيل حقنة زولير 150 ملغ مؤخرًا."
+                        "FR" -> "Je vois que vous avez enregistré votre injection de Xolair 150 mg récemment."
+                        "ES" -> "Veo que registraste tu inyección de Xolair 150 mg recientemente."
+                        "IT" -> "Vedo che hai registrato la tua iniezione di Xolair 150 mg di recente."
+                        "DE" -> "Ich sehe, Sie haben kürzlich Ihre Xolair 150 mg-Injektion protokolliert."
+                        "NL" -> "Ik zie dat je onlangs je Xolair 150 mg injectie hebt gelogd."
+                        else -> "I see you logged your Xolair 150 mg injection recently."
+                    }
+                    EntryType.XOLAIR_300 -> when (lang) {
+                        "AR" -> "أرى أنك قمت بتسجيل حقنة زولير 300 ملغ مؤخرًا."
+                        "FR" -> "Je vois que vous avez enregistré votre injection de Xolair 300 mg récemment."
+                        "ES" -> "Veo que registraste tu inyección de Xolair 300 mg recientemente."
+                        "IT" -> "Vedo che hai registrato la tua iniezione di Xolair 300 mg di recente."
+                        "DE" -> "Ich sehe, Sie haben kürzlich Ihre Xolair 300 mg-Injektion protokolliert."
+                        "NL" -> "Ik zie dat je onlangs je Xolair 300 mg injectie hebt gelogd."
+                        else -> "I see you logged your Xolair 300 mg injection recently."
+                    }
+                    EntryType.ALTERNATIVE -> when (lang) {
+                        "AR" -> "لقد لاحظت أنك قمت بتسجيل دواء بديل (${lastLog.metadata ?: "غير مسمى"}) مؤخرًا."
+                        "FR" -> "J'ai remarqué que vous avez enregistré un médicament alternatif (${lastLog.metadata ?: "Unnamed"}) récemment."
+                        "ES" -> "Noté que registraste un medicamento alternativo (${lastLog.metadata ?: "Unnamed"}) recientemente."
+                        "IT" -> "Ho notato che hai registrato un farmaco alternativo (${lastLog.metadata ?: "Unnamed"}) di recente."
+                        "DE" -> "Ich habe bemerkt, dass Sie kürzlich ein alternatives Medikament (${lastLog.metadata ?: "Unnamed"}) protokolliert haben."
+                        "NL" -> "Ik merkte dat je onlangs alternatieve medicatie (${lastLog.metadata ?: "Unnamed"}) hebt gelogd."
+                        else -> "I noticed you logged alternative medication (${lastLog.metadata ?: "Unnamed"}) recently."
+                    }
                 }
-                "$actionDesc Let's focus on calming down the body and relaxing the nervous system."
+                val followUp = when (lang) {
+                    "AR" -> " دعنا نركز على تهدئة الجسم وإرخاء الجهاز العصبي."
+                    "FR" -> " Concentrons-nous sur le calme du corps et la relaxation du système nerveux."
+                    "ES" -> " Enfoquémonos en calmar el cuerpo y relajar el sistema nervioso."
+                    "IT" -> " Concentriamoci sul calmare il corpo e rilassare il sistema nervoso."
+                    "DE" -> " Lassen Sie uns darauf konzentrieren, den Körper zu beruhigen und das Nervensystem zu entspannen."
+                    "NL" -> " Laten we ons concentreren op het kalmeren van het lichaam en het ontspannen van het zenuwstelsel."
+                    else -> " Let's focus on calming down the body and relaxing the nervous system."
+                }
+                "$actionDesc$followUp"
             } else {
                 ""
             }
@@ -1478,37 +1809,168 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
         // 4. Sentiment parsing and advice selection
         val responseBody = when {
-            text.contains("anxiety") || text.contains("anxious") || text.contains("panic") || text.contains("scared") || text.contains("fear") -> {
-                val advice = if (_anxietyAdvice.isNotEmpty()) _anxietyAdvice.random() else "Take a slow breath..."
-                "I hear you. Anxiety acts like a chemical fuse that commands immune cells to dump histamine, triggering painful hives and itching. Take a moment to anchor yourself with this advice:\n\n\"$advice\"\n\n$last4EntriesDescription"
+            text.contains("anxiety") || text.contains("anxious") || text.contains("panic") || text.contains("scared") || text.contains("fear") ||
+            (lang == "AR" && (text.contains("قلق") || text.contains("خوف") || text.contains("هلع") || text.contains("خائف"))) ||
+            (lang == "FR" && (text.contains("anxiété") || text.contains("anxieux") || text.contains("panique") || text.contains("peur") || text.contains("effrayé"))) ||
+            (lang == "ES" && (text.contains("ansiedad") || text.contains("ansioso") || text.contains("pánico") || text.contains("asustado") || text.contains("miedo"))) ||
+            (lang == "IT" && (text.contains("ansia") || text.contains("ansioso") || text.contains("panico") || text.contains("spaventato") || text.contains("paura"))) ||
+            (lang == "DE" && (text.contains("angst") || text.contains("ängstlich") || text.contains("panik") || text.contains("erschrocken") || text.contains("furcht"))) ||
+            (lang == "NL" && (text.contains("angst") || text.contains("angstig") || text.contains("paniek") || text.contains("bang") || text.contains("vrees"))) -> {
+                val rawAdvice = if (_anxietyAdvice.isNotEmpty()) _anxietyAdvice.random() else "Practice Square-Breathing: Inhale for 4 seconds, hold for 4, exhale for 4, and rest at the bottom for 4."
+                val advice = translateAdvice(rawAdvice, lang)
+                when (lang) {
+                    "AR" -> "أسمعك. يعمل القلق كفتيل كيميائي يأمر الخلايا المناعية بإفراز الهستامين، مما يؤدي إلى ظهور بثور وحكة مؤلمة. خذ لحظة لترسيخ نفسك بهذه النصيحة:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "FR" -> "Je vous entends. L'anxiété agit comme un fusible chimique qui ordonne aux cellules immunitaires de libérer de l'histamine, déclenquant des plaques d'urticaire douloureuses et des démangeaisons. Prenez un moment pour vous ancrer grâce à ce conseil :\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "ES" -> "Te escucho. La ansiedad actúa como un fusible químico que ordena a las células inmunitarias liberar histamina, lo que provoca ronchas dolorosas y picazón. Tómate un momento para anclarte con este consejo:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "IT" -> "Ti ascolto. L'ansia agisce come una miccia chimica che ordina alle cellule immunitarie di rilasciare istamina, scatenando orticaria dolorosa e prurito. Prenditi un momento per ancorarti con questo consiglio:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "DE" -> "Ich höre Sie. Angst wirkt wie eine chemische Zündschnur, die Immunzellen befiehlt, Histamin freizusetzen, was zu schmerzhaften Quaddeln und Juckreiz führt. Nehmen Sie sich einen Moment Zeit, um sich mit diesem Rat zu erden:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "NL" -> "Ik hoor je. Angst werkt als een chemische lont die immuuncellen opdracht geeft om histamine af te geven, wat leidt tot pijnlijke galbulten en jeuk. Neem een moment om jezelf te aarden met dit advies:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    else -> "I hear you. Anxiety acts like a chemical fuse that commands immune cells to dump histamine, triggering painful hives and itching. Take a moment to anchor yourself with this advice:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                }
             }
-            text.contains("stress") || text.contains("stressed") || text.contains("exhaust") || text.contains("heavy") || text.contains("chaos") -> {
-                val advice = if (_stressAdvice.isNotEmpty()) _stressAdvice.random() else "Relax your shoulders and jaw."
-                "I hear how much stress you are carrying right now. Emotional distress literally commands mast cells to degranulate and release histamines. Let's practice down-regulating your nervous system:\n\n\"$advice\"\n\n$last4EntriesDescription"
+            text.contains("stress") || text.contains("stressed") || text.contains("exhaust") || text.contains("heavy") || text.contains("chaos") ||
+            (lang == "AR" && (text.contains("ضغط") || text.contains("مجهد") || text.contains("تعب") || text.contains("ثقيل") || text.contains("فوضى"))) ||
+            (lang == "FR" && (text.contains("stress") || text.contains("stressé") || text.contains("épuisé") || text.contains("lourd") || text.contains("chaos"))) ||
+            (lang == "ES" && (text.contains("estrés") || text.contains("estresado") || text.contains("agotado") || text.contains("pesado") || text.contains("caos"))) ||
+            (lang == "IT" && (text.contains("stress") || text.contains("stressato") || text.contains("esaurito") || text.contains("pesante") || text.contains("caos"))) ||
+            (lang == "DE" && (text.contains("stress") || text.contains("gestresst") || text.contains("erschöpft") || text.contains("schwer") || text.contains("chaos"))) ||
+            (lang == "NL" && (text.contains("stress") || text.contains("gestrest") || text.contains("uitgeput") || text.contains("zwaar") || text.contains("chaos"))) -> {
+                val rawAdvice = if (_stressAdvice.isNotEmpty()) _stressAdvice.random() else "Drop Your Shoulders: Intentionally unclamp your jaw, lower your shoulders, and relax your tongue."
+                val advice = translateAdvice(rawAdvice, lang)
+                when (lang) {
+                    "AR" -> "أشعر بمدى الضغط الذي تتحمله الآن. يأمر الضغط العاطفي الخلايا الصارية حرفيًا بالتخلص من حبيباتها وإفراز الهستامين. دعنا نتدرب على تهدئة جهازك العصبي:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "FR" -> "Je comprends le stress que vous portez en ce moment. La détresse émotionnelle ordonne littéralement aux mastocytes de se dégranuler et de libérer des histamines. Entraînons-nous à calmer votre système nerveux :\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "ES" -> "Entiendo cuánto estrés estás cargando en este momento. El sufrimiento emocional literalmente ordena a los mastocitos desgranularse y liberar histaminas. Practiquemos regular a la baja tu sistema nervioso:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "IT" -> "Capisco quanto stress stai portando in questo momento. Il disagio emotivo ordina letteralmente ai mastociti di degranulare e rilasciare istamine. Pratichiamo la regolazione del sistema nervoso:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "DE" -> "Ich höre, wie viel Stress Sie gerade in sich tragen. Emotionaler Stress befiehlt den Mastzellen buchstäblich, sich zu degranulieren und Histamine freizusetzen. Lassen Sie uns üben, Ihr Nervensystem herunterzuregulieren:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "NL" -> "Ik begrijp hoeveel stress je momenteel met je meedraagt. Emotionele stress geeft mestcellen letterlijk opdracht om te degranuleren en histamines vrij te geven. Laten we oefenen met het kalmeren van je zenuwstelsel:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    else -> "I hear how much stress you are carrying right now. Emotional distress literally commands mast cells to degranulate and release histamines. Let's practice down-regulating your nervous system:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                }
             }
-            text.contains("burnout") || text.contains("burned out") || text.contains("empty") || text.contains("depleted") || text.contains("tired") -> {
-                val advice = if (_burnoutAdvice.isNotEmpty()) _burnoutAdvice.random() else "Give yourself absolute permission to rest."
-                "You sound completely empty. Chronic hives and recovery from burnout require non-negotiable permission to pause. Urti's recommendation:\n\n\"$advice\"\n\n$last4EntriesDescription"
+            text.contains("burnout") || text.contains("burned out") || text.contains("empty") || text.contains("depleted") || text.contains("tired") ||
+            (lang == "AR" && (text.contains("احتراق") || text.contains("منهك") || text.contains("فارغ") || text.contains("مستنزف") || text.contains("تعبان"))) ||
+            (lang == "FR" && (text.contains("épuisement") || text.contains("vide") || text.contains("épuisé") || text.contains("fatigué"))) ||
+            (lang == "ES" && (text.contains("agotamiento") || text.contains("vacío") || text.contains("agotado") || text.contains("cansado"))) ||
+            (lang == "IT" && (text.contains("esaurimento") || text.contains("vuoto") || text.contains("esaurito") || text.contains("stanco"))) ||
+            (lang == "DE" && (text.contains("burnout") || text.contains("ausgebrannt") || text.contains("leer") || text.contains("erschöpft") || text.contains("müde"))) ||
+            (lang == "NL" && (text.contains("burn-out") || text.contains("opgebrand") || text.contains("leeg") || text.contains("uitgeput") || text.contains("moe"))) -> {
+                val rawAdvice = if (_burnoutAdvice.isNotEmpty()) _burnoutAdvice.random() else "Initiate an Emergency Pause: Stop running. Give yourself non-negotiable permission to rest."
+                val advice = translateAdvice(rawAdvice, lang)
+                when (lang) {
+                    "AR" -> "تبدو فارغًا تمامًا. تتطلب الشرى المزمنة والتعافي من الاحتراق النفسي إذنًا غير قابل للتفاوض للتوقف المؤقت. توصية أورتي:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "FR" -> "Vous semblez complètement épuisé. L'urticaire chronique et la récupération après un épuisement professionnel exigent une permission non négociable de faire une pause. La recommandation d'Urti :\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "ES" -> "Suenas completamente agotado. La urticaria crónica y la recuperación del agotamiento requieren un permiso no negociable para hacer una pausa. Recomendación de Urti:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "IT" -> "Sembri completamente esausto. L'orticaria cronica e il recupero dal burnout richiedono il permesso non negoziabile di fare una pausa. La raccomandazione di Urti:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "DE" -> "Sie klingen völlig erschöpft. Chronische Urtikaria und die Genesung von Burnout erfordern die unverhandelbare Erlaubnis, eine Pause einzulegen. Urtis Empfehlung:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "NL" -> "Je klinkt volkomen leeg. Chronische urticaria en herstel van een burn-out vereisen een niet-onderhandelbare toestemming om te pauzeren. Urti's aanbeveling:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    else -> "You sound completely empty. Chronic hives and recovery from burnout require non-negotiable permission to pause. Urti's recommendation:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                }
             }
-            text.contains("pressure") || text.contains("pressured") || text.contains("work") || text.contains("deadline") || text.contains("busy") -> {
-                val advice = if (_pressureAdvice.isNotEmpty()) _pressureAdvice.random() else "Take a deliberate timeout."
-                "The intense pressure you're under locks up your chest and nerves. Step back from the pressure loop for a moment:\n\n\"$advice\"\n\n$last4EntriesDescription"
+            text.contains("pressure") || text.contains("pressured") || text.contains("work") || text.contains("deadline") || text.contains("busy") ||
+            (lang == "AR" && (text.contains("ضغط") || text.contains("عمل") || text.contains("موعد") || text.contains("مشغول"))) ||
+            (lang == "FR" && (text.contains("pression") || text.contains("travail") || text.contains("délai") || text.contains("occupé"))) ||
+            (lang == "ES" && (text.contains("presión") || text.contains("trabajo") || text.contains("plazo") || text.contains("ocupado"))) ||
+            (lang == "IT" && (text.contains("pressione") || text.contains("lavoro") || text.contains("scadenza") || text.contains("occupato"))) ||
+            (lang == "DE" && (text.contains("druck") || text.contains("arbeit") || text.contains("frist") || text.contains("beschäftigt"))) ||
+            (lang == "NL" && (text.contains("druk") || text.contains("werk") || text.contains("deadline") || text.contains("bezig"))) -> {
+                val rawAdvice = if (_pressureAdvice.isNotEmpty()) _pressureAdvice.random() else "Enforce an Explicit Pause: When high pressure hits, take a deliberate timeout to lower your heart rate."
+                val advice = translateAdvice(rawAdvice, lang)
+                when (lang) {
+                    "AR" -> "الضغط الشديد الذي تتعرض له يغلق صدرك وأعصابك. تراجع عن حلقة الضغط للحظة:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "FR" -> "La pression intense que vous subissez bloque votre poitrine et vos nerfs. Sortez de la boucle de pression un instant :\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "ES" -> "La intensa presión bajo la que te encuentras bloquea tu pecho y tus nervios. Sal del bucle de presión por un momento:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "IT" -> "La pressione intensa a cui sei sottoposto blocca il petto e i nervi. Fai un passo indietro dal ciclo di pressione per un momento:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "DE" -> "Der intensive Druck, unter dem Sie stehen, schnürt Ihnen die Brust und die Nerven ein. Treten Sie für einen Moment aus der Druckschleife heraus:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    "NL" -> "De intense druk waaronder je staat, blokkeert je borst en zenuwen. Stap even uit de druklus:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                    else -> "The intense pressure you're under locks up your chest and nerves. Step back from the pressure loop for a moment:\n\n\"$advice\"\n\n$last4EntriesDescription"
+                }
             }
-            text.contains("thank") || text.contains("thanks") || text.contains("helpful") || text.contains("good") || text.contains("happy") || text.contains("better") -> {
-                listOf(
-                    "I'm so glad to hear that! Keeping our nervous system balanced is a beautiful way to protect your skin and body. How else can I support your balance today?",
-                    "That brings absolute peace to my heart. Supporting your well-being is my ultimate mission. Carry this quiet, grounded space with you.",
-                    "Wonderful. We are taking beautiful steps together toward peace, rest, and strength."
-                ).random()
+            text.contains("thank") || text.contains("thanks") || text.contains("helpful") || text.contains("good") || text.contains("happy") || text.contains("better") ||
+            (lang == "AR" && (text.contains("شكرا") || text.contains("شكرًا") || text.contains("مفيد") || text.contains("جيد") || text.contains("سعيد") || text.contains("أفضل"))) ||
+            (lang == "FR" && (text.contains("merci") || text.contains("utile") || text.contains("bon") || text.contains("bien") || text.contains("heureux") || text.contains("mieux"))) ||
+            (lang == "ES" && (text.contains("gracias") || text.contains("útil") || text.contains("bueno") || text.contains("bien") || text.contains("feliz") || text.contains("mejor"))) ||
+            (lang == "IT" && (text.contains("grazie") || text.contains("utile") || text.contains("buono") || text.contains("bene") || text.contains("felice") || text.contains("meglio"))) ||
+            (lang == "DE" && (text.contains("danke") || text.contains("hilfreich") || text.contains("gut") || text.contains("glücklich") || text.contains("besser"))) ||
+            (lang == "NL" && (text.contains("bedankt") || text.contains("dank") || text.contains("nuttig") || text.contains("goed") || text.contains("blij") || text.contains("beter"))) -> {
+                when (lang) {
+                    "AR" -> listOf(
+                        "أنا سعيد جدًا لسماع ذلك! الحفاظ على توازن نظامنا العصبي هو وسيلة جميلة لحماية بشرتك وجسمك. كيف يمكنني دعم توازنك اليوم أيضًا؟",
+                        "هذا يجلب السلام المطلق لقلبي. دعم عافيتك هو مهمتي القصوى. احمل هذه المساحة الهادئة والراسخة معك.",
+                        "رائع. نحن نتخذ خطوات جميلة معًا نحو السلام والراحة والقوة."
+                    ).random()
+                    "FR" -> listOf(
+                        "Je suis tellement ravi d'entendre cela ! Garder notre système nerveux équilibré est un excellent moyen de protéger votre peau et votre corps. Comment puis-je vous aider d'autre à trouver votre équilibre aujourd'hui ?",
+                        "Cela apporte une paix absolue à mon cœur. Soutenir votre bien-être est mon ultime mission. Transportez cet espace calme et ancré avec vous.",
+                        "Merveilleux. Nous faisons de beaux pas ensemble vers la paix, le repos et la force."
+                    ).random()
+                    "ES" -> listOf(
+                        "¡Me alegra mucho escuchar eso! Mantener nuestro sistema nervioso equilibrado es una forma hermosa de proteger tu piel y tu cuerpo. ¿De qué otra manera puedo apoyar tu equilibrio hoy?",
+                        "Eso trae paz absoluta a mi corazón. Apoyar tu bienestar es mi misión fundamental. Lleva este espacio tranquilo y conectado contigo.",
+                        "Maravilloso. Estamos dando pasos hermosos juntos hacia la paz, el descanso y la fuerza."
+                    ).random()
+                    "IT" -> listOf(
+                        "Sono così felice di sentirlo! Mantenere il nostro sistema nervoso equilibrato è un modo bellissimo per proteggere la pelle e il corpo. In quale altro modo posso supportare il tuo equilibrio oggi?",
+                        "Questo porta una pace assoluta al mio cuore. Sostenere il tuo benessere è la mia missione finale. Porta con te questo spazio calmo e radicato.",
+                        "Meraviglioso. Stiamo facendo passi bellissimi insieme verso la pace, il riposo e la forza."
+                    ).random()
+                    "DE" -> listOf(
+                        "Ich freue mich sehr, das zu hören! Unser Nervensystem im Gleichgewicht zu halten, ist eine wunderbare Möglichkeit, Ihre Haut und Ihren Körper zu schützen. Wie kann ich Sie heute noch bei Ihrem Gleichgewicht unterstützen?",
+                        "Das bringt absoluten Frieden in mein Herz. Ihr Wohlbefinden zu unterstützen, ist meine oberste Mission. Tragen Sie diesen ruhigen, geerdeten Ort in sich.",
+                        "Wunderbar. Wir gehen gemeinsam schöne Schritte in Richtung Frieden, Ruhe und Kraft."
+                    ).random()
+                    "NL" -> listOf(
+                        "Ik ben zo blij dat te horen! Het in balans houden van ons zenuwstelsel is een prachtige manier om je huid en lichaam te beschermen. Hoe kan ik je vandaag nog meer ondersteunen bij je balans?",
+                        "Dat brengt absolute rust in mijn hart. Jouw welzijn ondersteunen is mijn ultieme missie. Neem deze rustige, geaarde ruimte met je mee.",
+                        "Prachtig. We zetten samen mooie stappen richting vrede, rust en kracht."
+                    ).random()
+                    else -> listOf(
+                        "I'm so glad to hear that! Keeping our nervous system balanced is a beautiful way to protect your skin and body. How else can I support your balance today?",
+                        "That brings absolute peace to my heart. Supporting your well-being is my ultimate mission. Carry this quiet, grounded space with you.",
+                        "Wonderful. We are taking beautiful steps together toward peace, rest, and strength."
+                    ).random()
+                }
             }
             else -> {
                 val allAdvice = _anxietyAdvice + _stressAdvice + _burnoutAdvice + _pressureAdvice
-                val advice = if (allAdvice.isNotEmpty()) allAdvice.random() else "Take a slow breath..."
-                listOf(
-                    "Thank you for sharing that with Urti. Your feelings are fully valid. Let's take a pause together. How is your body feeling in this exact moment?\n\n\"$advice\"",
-                    "I am listening. Sometimes just venting it out helps release the tension stored in our shoulders and jaw. Urti's guidance for you:\n\n\"$advice\"\n\n$last4EntriesDescription",
-                    "That sounds like a lot to hold today. Remember to be gentle with yourself. You are allowed to be a work in progress and a masterpiece at the same time."
-                ).random()
+                val rawAdvice = if (allAdvice.isNotEmpty()) allAdvice.random() else "Practice Square-Breathing: Inhale for 4 seconds, hold for 4, exhale for 4, and rest at the bottom for 4."
+                val advice = translateAdvice(rawAdvice, lang)
+                when (lang) {
+                    "AR" -> listOf(
+                        "شكرًا لمشاركتك ذلك مع أورتي. مشاعرك صالحة تمامًا. دعنا نأخذ قسطًا من الراحة معًا. كيف يشعر جسمك في هذه اللحظة بالذات؟\n\n\"$advice\"",
+                        "أنا أستمع إليك. في بعض الأحيان يساعد التنفيس عن مشاعرك في تخفيف التوتر المخزن في كتفينا وفكنا. إرشاد أورتي لك:\n\n\"$advice\"\n\n$last4EntriesDescription",
+                        "يبدو أن هذا كثير لتحمله اليوم. تذكر أن تكون لطيفًا مع نفسك. يُسمح لك بأن تكون عملاً قيد التنفيذ وقطعة فنية رائعة في نفس الوقت."
+                    ).random()
+                    "FR" -> listOf(
+                        "Merci de partager cela avec Urti. Vos sentiments sont tout à fait valables. Faisons une pause ensemble. Comment se sent votre corps en ce moment précis ?\n\n\"$advice\"",
+                        "Je vous écoute. Parfois, le simple fait d'évacuer aide à relâcher la tension accumulée dans nos épaules et notre mâchoire. Le conseil d'Urti pour vous :\n\n\"$advice\"\n\n$last4EntriesDescription",
+                        "Cela semble faire beaucoup à porter aujourd'hui. N'oubliez pas d'être doux avec vous-même. Vous avez le droit d'être à la fois une œuvre en cours et un chef-d'œuvre."
+                    ).random()
+                    "ES" -> listOf(
+                        "Gracias por compartir eso con Urti. Tus sentimientos son completamente válidos. Hagamos una pausa juntos. ¿Cómo se siente tu cuerpo en este preciso momento?\n\n\"$advice\"",
+                        "Te escucho. A veces, simplemente desahogarse ayuda a liberar la tensión acumulada en nuestros hombros y mandíbula. Guía de Urti para ti:\n\n\"$advice\"\n\n$last4EntriesDescription",
+                        "Eso suena como mucho que soportar hoy. Recuerda ser amable contigo mismo. Se te permite ser una obra en progreso y una obra maestra al mismo tiempo."
+                    ).random()
+                    "IT" -> listOf(
+                        "Grazie per aver condiviso questo con Urti. I tuoi sentimenti sono del tutto validi. Facciamo una pausa insieme. Come si sente il tuo corpo in questo preciso momento?\n\n\"$advice\"",
+                        "Ti ascolto. A volte, anche solo sfogarsi aiuta a rilasciare la tensione accumulata nelle spalle e nella mascella. Guida di Urti per te:\n\n\"$advice\"\n\n$last4EntriesDescription",
+                        "Sembra che ci sia molto da sopportare oggi. Ricorda di essere gentile con te stesso. Ti è permesso essere un lavoro in corso e un capolavoro allo stesso tempo."
+                    ).random()
+                    "DE" -> listOf(
+                        "Vielen Dank, dass Sie das mit Urti teilen. Ihre Gefühle sind absolut berechtigt. Lassen Sie uns gemeinsam eine Pause einlegen. Wie fühlt sich Ihr Körper in diesem Moment an?\n\n\"$advice\"",
+                        "Ich höre zu. Manchmal hilft es einfach, sich Luft zu machen, um die in den Schultern und im Kiefer gespeicherte Spannung abzubauen. Urtis Rat für Sie:\n\n\"$advice\"\n\n$last4EntriesDescription",
+                        "Das klingt nach viel, was Sie heute tragen müssen. Denken Sie daran, sanft zu sich selbst zu sein. Sie dürfen gleichzeitig eine Baustelle und ein Meisterwerk sein."
+                    ).random()
+                    "NL" -> listOf(
+                        "Bedankt dat je dit met Urti deelt. Je gevoelens zijn volkomen geldig. Laten we samen even pauzeren. Hoe voelt je lichaam op dit moment?\n\n\"$advice\"",
+                        "Ik luister naar je. Soms helpt het uiten van je gevoelens om de spanning in onze schouders en kaak los te laten. Urti's advies voor jou:\n\n\"$advice\"\n\n$last4EntriesDescription",
+                        "Dat klinkt als veel om vandaag te dragen. Denk eraan om lief te zijn voor jezelf. Je mag tegelijkertijd een werk in uitvoering en een meesterwerk zijn."
+                    ).random()
+                    else -> listOf(
+                        "Thank you for sharing that with Urti. Your feelings are fully valid. Let's take a pause together. How is your body feeling in this exact moment?\n\n\"$advice\"",
+                        "I am listening. Sometimes just venting it out helps release the tension stored in our shoulders and jaw. Urti's guidance for you:\n\n\"$advice\"\n\n$last4EntriesDescription",
+                        "That sounds like a lot to hold today. Remember to be gentle with yourself. You are allowed to be a work in progress and a masterpiece at the same time."
+                    ).random()
+                }
             }
         }
 
@@ -1557,6 +2019,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             obj.put("id", it.id)
             obj.put("title", it.title)
             obj.put("startTime", it.startTime)
+            obj.put("language", it.language)
             
             val msgArray = JSONArray()
             it.messages.forEach { m ->
@@ -1596,7 +2059,8 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                         id = obj.getString("id"),
                         title = obj.getString("title"),
                         startTime = obj.getString("startTime"),
-                        messages = msgList
+                        messages = msgList,
+                        language = obj.optString("language", "EN")
                     )
                 )
             }

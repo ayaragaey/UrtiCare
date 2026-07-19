@@ -25,6 +25,7 @@ import com.example.urticare20.ui.theme.AmoledBlack
 import com.example.urticare20.ui.theme.CoralPink
 import com.example.urticare20.ui.theme.PastelIceBlue
 import com.example.urticare20.ui.theme.SoftYellow
+import com.example.urticare20.ui.theme.AlertRed
 import com.example.urticare20.viewmodel.TrackerViewModel
 import java.time.ZonedDateTime
 import androidx.compose.material3.AlertDialog
@@ -39,6 +40,8 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.BorderStroke
@@ -52,6 +55,8 @@ import com.example.urticare20.ui.theme.DarkBorder
 import com.example.urticare20.ui.theme.DarkSurface
 import com.example.urticare20.ui.theme.LightGray
 import com.example.urticare20.ui.theme.MutedGray
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Brush
 
 @Composable
 fun ActionPillsGroup(viewModel: TrackerViewModel) {
@@ -67,14 +72,18 @@ fun ActionPillsGroup(viewModel: TrackerViewModel) {
     val context = LocalContext.current
 
     var showFlareUpDialog by remember { mutableStateOf(false) }
-    var isMildSelected by remember { mutableStateOf(true) }
-    var isSevereSelected by remember { mutableStateOf(false) }
+    var isAngioedemaOnlySelected by remember { mutableStateOf(false) }
+    var selectedSeverity by remember { mutableStateOf("Mild") }
+    var showSeverityLevelsInfo by remember { mutableStateOf(false) }
     var isAngioYesSelected by remember { mutableStateOf(false) }
     var isAngioNoSelected by remember { mutableStateOf(true) }
     val selectedReasons = remember { mutableStateListOf<String>() }
     val vegetablesText = remember { mutableStateOf("") }
     val fruitsText = remember { mutableStateOf("") }
     val illnessText = remember { mutableStateOf("") }
+    val medicineOtherNameText = remember { mutableStateOf("") }
+    val medicineOtherCauseText = remember { mutableStateOf("") }
+    val insectText = remember { mutableStateOf("") }
 
     Row(
         modifier = Modifier
@@ -90,11 +99,17 @@ fun ActionPillsGroup(viewModel: TrackerViewModel) {
             color = CoralPink,
             size = 90,
             onClick = {
-                isMildSelected = true
-                isSevereSelected = false
+                selectedSeverity = "Mild"
                 isAngioYesSelected = false
                 isAngioNoSelected = true
+                isAngioedemaOnlySelected = false
                 selectedReasons.clear()
+                vegetablesText.value = ""
+                fruitsText.value = ""
+                illnessText.value = ""
+                medicineOtherNameText.value = ""
+                medicineOtherCauseText.value = ""
+                insectText.value = ""
                 showFlareUpDialog = true
             }
         )
@@ -108,6 +123,7 @@ fun ActionPillsGroup(viewModel: TrackerViewModel) {
             glow = true,
             onClick = {
                 val mainMed = viewModel.profileAntihistamines.value.find { it.isMain }
+                    ?: viewModel.profileAntihistamines.value.firstOrNull()
                 val metadata = if (mainMed != null) "${mainMed.name}:::${mainMed.mgs}" else null
                 viewModel.addEntry(EntryType.ANTIHISTAMINE, ZonedDateTime.now().toString(), metadata = metadata)
             }
@@ -134,8 +150,8 @@ fun ActionPillsGroup(viewModel: TrackerViewModel) {
             containerColor = DarkSurface,
             title = {
                 Text(
-                    text = "Log Symptom Flare Up",
-                    color = CoralPink,
+                    text = if (isAngioedemaOnlySelected) "Log Angioedema" else "Log Symptom Flare Up",
+                    color = Color(0xFF1A7E97),
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
@@ -143,129 +159,204 @@ fun ActionPillsGroup(viewModel: TrackerViewModel) {
             text = {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                    // Symptom Metrics Card
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = DarkCard),
+                        border = BorderStroke(1.dp, DarkBorder),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "Severity",
-                            color = CoralPink,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.width(90.dp)
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable {
-                                isMildSelected = true
-                                isSevereSelected = false
-                            }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            RadioButton(
-                                selected = isMildSelected,
-                                onClick = {
-                                    isMildSelected = true
-                                    isSevereSelected = false
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = CoralPink,
-                                    unselectedColor = MutedGray
+                            // Severity Dropdown Row
+                            var severityExpanded by remember { mutableStateOf(false) }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Severity",
+                                    color = Color(0xFF1A7E97),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.width(85.dp)
                                 )
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "Mild", color = Color(0xFF737373), fontSize = 12.sp)
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable {
-                                isMildSelected = false
-                                isSevereSelected = true
+                                Box {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .background(DarkSurface, shape = RoundedCornerShape(8.dp))
+                                            .border(1.dp, DarkBorder, shape = RoundedCornerShape(8.dp))
+                                            .clickable { severityExpanded = true }
+                                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = selectedSeverity,
+                                            color = Color(0xFF737373),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "▼",
+                                            color = Color(0xFF1A7E97),
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = severityExpanded,
+                                        onDismissRequest = { severityExpanded = false },
+                                        modifier = Modifier.background(DarkSurface)
+                                    ) {
+                                        listOf("Mild", "Moderate", "Severe", "Critical").forEach { option ->
+                                            DropdownMenuItem(
+                                                text = { Text(option, color = Color(0xFF737373), fontSize = 12.sp) },
+                                                onClick = {
+                                                    selectedSeverity = option
+                                                    severityExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
                             }
-                        ) {
-                            RadioButton(
-                                selected = isSevereSelected,
-                                onClick = {
-                                    isMildSelected = false
-                                    isSevereSelected = true
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = CoralPink,
-                                    unselectedColor = MutedGray
-                                )
+
+                            // Understand Severity Levels link
+                            Text(
+                                text = "Understand Severity Levels",
+                                color = Color(0xFF1A7E97),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                style = androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline),
+                                modifier = Modifier
+                                    .padding(start = 85.dp)
+                                    .clickable { showSeverityLevelsInfo = true }
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "Severe", color = Color(0xFF737373), fontSize = 12.sp)
+
+                            // Critical Warning
+                            if (selectedSeverity == "Critical") {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = AlertRed.copy(alpha = 0.15f)),
+                                    border = BorderStroke(1.dp, AlertRed),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "🚨 WARNING: Please seek immediate emergency medical care if you are experiencing swelling of deep skin tissue (face, lips, tongue, throat) or any difficulty breathing or swallowing.",
+                                        color = AlertRed,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(8.dp)
+                                    )
+                                }
+                            }
+
+                            // Angioedema Only Checkbox Row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { 
+                                        isAngioedemaOnlySelected = !isAngioedemaOnlySelected 
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isAngioedemaOnlySelected,
+                                    onCheckedChange = null,
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = Color(0xFF1A7E97),
+                                        uncheckedColor = MutedGray,
+                                        checkmarkColor = AmoledBlack
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Angioedema Only",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+
+                            if (!isAngioedemaOnlySelected) {
+                                // Angioedema Radio Button Row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Angioedema",
+                                        color = Color(0xFF1A7E97),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.width(85.dp)
+                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.clickable {
+                                            isAngioYesSelected = true
+                                            isAngioNoSelected = false
+                                        }
+                                    ) {
+                                        RadioButton(
+                                            selected = isAngioYesSelected,
+                                            onClick = {
+                                                isAngioYesSelected = true
+                                                isAngioNoSelected = false
+                                            },
+                                            modifier = Modifier.size(20.dp),
+                                            colors = RadioButtonDefaults.colors(
+                                                selectedColor = Color(0xFF1A7E97),
+                                                unselectedColor = MutedGray
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(text = "Yes", color = Color(0xFF737373), fontSize = 12.sp)
+                                    }
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.clickable {
+                                            isAngioYesSelected = false
+                                            isAngioNoSelected = true
+                                        }
+                                    ) {
+                                        RadioButton(
+                                            selected = isAngioNoSelected,
+                                            onClick = {
+                                                isAngioYesSelected = false
+                                                isAngioNoSelected = true
+                                            },
+                                            modifier = Modifier.size(20.dp),
+                                            colors = RadioButtonDefaults.colors(
+                                                selectedColor = Color(0xFF1A7E97),
+                                                unselectedColor = MutedGray
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(text = "No", color = Color(0xFF737373), fontSize = 12.sp)
+                                    }
+                                }
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Angioedema",
-                            color = CoralPink,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.width(90.dp)
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable {
-                                isAngioYesSelected = true
-                                isAngioNoSelected = false
-                            }
-                        ) {
-                            RadioButton(
-                                selected = isAngioYesSelected,
-                                onClick = {
-                                    isAngioYesSelected = true
-                                    isAngioNoSelected = false
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = CoralPink,
-                                    unselectedColor = MutedGray
-                                )
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "Yes", color = Color(0xFF737373), fontSize = 12.sp)
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable {
-                                isAngioYesSelected = false
-                                isAngioNoSelected = true
-                            }
-                        ) {
-                            RadioButton(
-                                selected = isAngioNoSelected,
-                                onClick = {
-                                    isAngioYesSelected = false
-                                    isAngioNoSelected = true
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = CoralPink,
-                                    unselectedColor = MutedGray
-                                )
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "No", color = Color(0xFF737373), fontSize = 12.sp)
-                        }
-                    }
-
+                    // Potential Reasons Divider/Title
                     Text(
                         text = "Potential Reasons (optional)",
-                        color = CoralPink,
+                        color = Color(0xFF1A7E97),
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 4.dp)
+                        fontWeight = FontWeight.Bold
                     )
 
                     ReasonsSearchableList(
@@ -273,8 +364,11 @@ fun ActionPillsGroup(viewModel: TrackerViewModel) {
                         vegetablesText = vegetablesText,
                         fruitsText = fruitsText,
                         illnessText = illnessText,
+                        medicineOtherNameText = medicineOtherNameText,
+                        medicineOtherCauseText = medicineOtherCauseText,
+                        insectText = insectText,
                         viewModel = viewModel,
-                        themeColor = CoralPink,
+                        themeColor = Color(0xFF1A7E97),
                         maxHeight = 360
                     )
                 }
@@ -282,8 +376,8 @@ fun ActionPillsGroup(viewModel: TrackerViewModel) {
             confirmButton = {
                 Button(
                     onClick = {
-                        val severityStr = if (isSevereSelected) "Severity: Severe" else "Severity: Mild"
-                        val angioStr = if (isAngioYesSelected) "Angioedema: Yes" else "Angioedema: No"
+                        val severityStr = "Severity: $selectedSeverity"
+                        val angioStr = if (isAngioedemaOnlySelected || isAngioYesSelected) "Angioedema: Yes" else "Angioedema: No"
                         val finalReasons = mutableListOf<String>()
                         selectedReasons.forEach { r ->
                             when (r) {
@@ -308,16 +402,38 @@ fun ActionPillsGroup(viewModel: TrackerViewModel) {
                                         finalReasons.add("Illness")
                                     }
                                 }
+                                "Medicine : Other" -> {
+                                    val name = medicineOtherNameText.value.trim()
+                                    val cause = medicineOtherCauseText.value.trim()
+                                    if (name.isNotEmpty()) {
+                                        val causePart = if (cause.isNotEmpty()) " (Cause: $cause)" else ""
+                                        finalReasons.add("Medicine : Other: $name$causePart")
+                                    } else {
+                                        finalReasons.add("Medicine : Other")
+                                    }
+                                }
+                                "Insect Bite/Sting" -> {
+                                    val insect = insectText.value.trim()
+                                    if (insect.isNotEmpty()) {
+                                        finalReasons.add("Insect Bite/Sting: $insect")
+                                    } else {
+                                        finalReasons.add("Insect Bite/Sting")
+                                    }
+                                }
                                 else -> finalReasons.add(r)
                             }
                         }
                         val reasonsStr = finalReasons.joinToString("; ")
-                        val metadata = if (reasonsStr.isNotEmpty()) "$severityStr; $angioStr; $reasonsStr" else "$severityStr; $angioStr"
+                        val metadata = if (isAngioedemaOnlySelected) {
+                            if (reasonsStr.isNotEmpty()) "$severityStr; Angioedema: Yes; Title: Angioedema; $reasonsStr" else "$severityStr; Angioedema: Yes; Title: Angioedema"
+                        } else {
+                            if (reasonsStr.isNotEmpty()) "$severityStr; $angioStr; $reasonsStr" else "$severityStr; $angioStr"
+                        }
                         
                         viewModel.addEntry(EntryType.FLARE_UP, ZonedDateTime.now().toString(), metadata = metadata)
                         showFlareUpDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = CoralPink, contentColor = AmoledBlack)
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A7E97), contentColor = Color.White)
                 ) {
                     Text(text = "Log Entry", fontWeight = FontWeight.Bold)
                 }
@@ -550,6 +666,51 @@ fun ActionPillsGroup(viewModel: TrackerViewModel) {
             }
         )
     }
+
+    if (showSeverityLevelsInfo) {
+        AlertDialog(
+            onDismissRequest = { showSeverityLevelsInfo = false },
+            containerColor = DarkSurface,
+            title = {
+                Text("Severity Levels", color = LightGray, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "🟢 1. Mild Flare-up\nHives Count: Fewer than 20 individual hives/wheals over a 24-hour period.\nItch Severity: Mild, noticeable but not troublesome or annoying.\nImpact: No interference with sleep or daily activities.",
+                        color = Color(0xFF737373),
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "🟡 2. Moderate Flare-up\nHives Count: Between 20 and 50 hives/wheals over a 24-hour period.\nItch Severity: Troublesome and annoying, but manageable.\nImpact: Mildly distracting, but does not prevent sleep or routine daily activities.",
+                        color = Color(0xFF737373),
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "🔴 3. Severe Flare-up\nHives Count: More than 50 hives/wheals (or large confluent/merged areas of hives).\nItch Severity: Intense, distressing, and difficult to ignore.\nImpact: Severely interferes with daily tasks and causes sleep deprivation.",
+                        color = Color(0xFF737373),
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "🚨 4. Critical (Emergency/Angioedema)\nSymptoms: Swelling of deep skin tissue (face, lips, tongue, or throat).\nImpact: Any difficulty breathing, swallowing, or voice changes.",
+                        color = Color(0xFF737373),
+                        fontSize = 12.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showSeverityLevelsInfo = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A7E97), contentColor = Color.White)
+                ) {
+                    Text("Got it 👍", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -570,6 +731,18 @@ fun CircularActionPill(
         label = "pill_press_scale"
     )
 
+    // Compute top (lighter) and bottom (darker) gradient colors for the 3D dome look
+    val topGradientColor = Color(
+        red = (color.red + (1f - color.red) * 0.22f).coerceIn(0f, 1f),
+        green = (color.green + (1f - color.green) * 0.22f).coerceIn(0f, 1f),
+        blue = (color.blue + (1f - color.blue) * 0.22f).coerceIn(0f, 1f)
+    )
+    val bottomGradientColor = Color(
+        red = (color.red * 0.72f).coerceIn(0f, 1f),
+        green = (color.green * 0.72f).coerceIn(0f, 1f),
+        blue = (color.blue * 0.72f).coerceIn(0f, 1f)
+    )
+
     Box(
         modifier = Modifier
             .size(size.dp)
@@ -584,36 +757,76 @@ fun CircularActionPill(
                 spotColor = if (glow) color else Color.Black
             )
             .clip(CircleShape)
-            .background(color)
+            // 3D Dome Gradient
+            .background(
+                brush = Brush.linearGradient(
+                    colors = listOf(topGradientColor, bottomGradientColor)
+                )
+            )
+            // Outer 3D Bevel Highlight
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    colors = listOf(Color.White.copy(alpha = 0.45f), Color.Black.copy(alpha = 0.35f))
+                ),
+                shape = CircleShape
+            )
             .clickable(
                 interactionSource = interactionSource,
-                indication = androidx.compose.foundation.LocalIndication.current, // Standard Material ripple
+                indication = androidx.compose.foundation.LocalIndication.current,
                 onClick = onClick
-            )
-            .padding(10.dp),
+            ),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = label,
-                color = AmoledBlack,
-                fontSize = if (size > 95) 12.sp else 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-                textAlign = TextAlign.Center,
-                lineHeight = 14.sp
-            )
-            subLabel?.let {
-                Text(
-                    text = it,
-                    color = AmoledBlack.copy(alpha = 0.8f),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 1.dp)
+        // Increased ring size factor from 0.76 to 0.85 to provide more space for text
+        val ringSize = (size * 0.85).dp
+
+        // 1. Ring Shadow (shifted slightly down-right)
+        Box(
+            modifier = Modifier
+                .size(ringSize)
+                .offset(x = 0.6.dp, y = 1.2.dp)
+                .border(
+                    width = 2.dp,
+                    color = Color.Black.copy(alpha = 0.18f),
+                    shape = CircleShape
                 )
+        )
+
+        // 2. White Ring (contains text)
+        Box(
+            modifier = Modifier
+                .size(ringSize)
+                .border(
+                    width = 2.2.dp,
+                    color = Color.White,
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(4.dp)
+            ) {
+                Text(
+                    text = label,
+                    color = Color.White, // Pure white for perfect readability in the dome
+                    fontSize = if (size > 95) 10.5.sp else 9.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center,
+                    lineHeight = if (size > 95) 12.sp else 10.5.sp
+                )
+                subLabel?.let {
+                    Text(
+                        text = it,
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 1.dp)
+                    )
+                }
             }
         }
     }

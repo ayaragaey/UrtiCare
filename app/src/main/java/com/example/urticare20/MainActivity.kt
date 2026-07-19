@@ -217,7 +217,11 @@ class MainActivity : ComponentActivity() {
                                 1 -> {
                                     // Insights Tab (Comprehensive tabbed log manager)
                                     if (showPatternAnalysis) {
-                                        PatternAnalysisScreen(onBack = { showPatternAnalysis = false })
+                                        PatternAnalysisScreen(
+                                            viewModel = viewModel,
+                                            entries = entries,
+                                            onBack = { showPatternAnalysis = false }
+                                        )
                                     } else {
                                         Column(
                                             modifier = Modifier
@@ -432,33 +436,43 @@ fun MilestoneAlertOverlay(viewModel: TrackerViewModel) {
                     // Congratulations Title
                     Text(
                         text = "MILESTONE UNLOCKED!",
-                        color = themeColor,
+                        color = Color(0xFF1A7E97),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Message
+                    // Duration Details
                     Text(
-                        text = alert.message,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        lineHeight = 20.sp,
+                        text = alert.durationText,
+                        color = Color(0xFF509729),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // achieved milestone line
+                    Text(
+                        text = "A new streak milestone has been achieved. Consistent tracking leads to better insights!",
+                        color = Color(0xFF1A7E97),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Awesome button
                     Button(
                         onClick = { viewModel.dismissMilestoneAlert(alert.id) },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = themeColor,
+                            containerColor = Color(0xFF1A7E97),
                             contentColor = AmoledBlack
                         ),
                         shape = RoundedCornerShape(12.dp),

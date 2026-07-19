@@ -28,6 +28,9 @@ fun StreakBreakDialog(viewModel: TrackerViewModel) {
     val vegetablesText = remember { mutableStateOf("") }
     val fruitsText = remember { mutableStateOf("") }
     val illnessText = remember { mutableStateOf("") }
+    val medicineOtherNameText = remember { mutableStateOf("") }
+    val medicineOtherCauseText = remember { mutableStateOf("") }
+    val insectText = remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = { viewModel.pendingStreakBreak.value = null },
@@ -35,7 +38,7 @@ fun StreakBreakDialog(viewModel: TrackerViewModel) {
         title = {
             Text(
                 text = "Milestone Streak Broken 😢",
-                color = CoralPink,
+                color = Color(0xFF1A7E97),
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
             )
@@ -49,14 +52,14 @@ fun StreakBreakDialog(viewModel: TrackerViewModel) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Your ${breakInfo.streakText} was broken by this log. Don't sweat it, the progress still counts.\n\nWhat potentially caused this?",
+                    text = "Your ${breakInfo.streakText} was broken. Don't sweat it, the progress still counts.\n\nWhat potentially caused this?",
                     color = LightGray,
                     fontSize = 13.sp
                 )
 
                 Text(
                     text = "Potential Reasons",
-                    color = CoralPink,
+                    color = Color(0xFF1A7E97),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 4.dp)
@@ -67,8 +70,11 @@ fun StreakBreakDialog(viewModel: TrackerViewModel) {
                     vegetablesText = vegetablesText,
                     fruitsText = fruitsText,
                     illnessText = illnessText,
+                    medicineOtherNameText = medicineOtherNameText,
+                    medicineOtherCauseText = medicineOtherCauseText,
+                    insectText = insectText,
                     viewModel = viewModel,
-                    themeColor = CoralPink,
+                    themeColor = Color(0xFF1A7E97),
                     maxHeight = 300
                 )
 
@@ -82,9 +88,9 @@ fun StreakBreakDialog(viewModel: TrackerViewModel) {
                 ) {
                     Checkbox(
                         checked = isOtherSelected,
-                        onCheckedChange = { checked -> isOtherSelected = checked },
+                        onCheckedChange = null,
                         colors = CheckboxDefaults.colors(
-                            checkedColor = CoralPink,
+                            checkedColor = Color(0xFF1A7E97),
                             uncheckedColor = MutedGray,
                             checkmarkColor = AmoledBlack
                         )
@@ -107,7 +113,7 @@ fun StreakBreakDialog(viewModel: TrackerViewModel) {
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = CoralPink,
+                            focusedBorderColor = Color(0xFF1A7E97),
                             unfocusedBorderColor = DarkBorder,
                             focusedContainerColor = DarkCard,
                             unfocusedContainerColor = DarkCard
@@ -142,6 +148,24 @@ fun StreakBreakDialog(viewModel: TrackerViewModel) {
                                     finalReasons.add("Illness: ${illnessText.value.trim()}")
                                 } else {
                                     finalReasons.add("Illness")
+                                }
+                            }
+                            "Medicine : Other" -> {
+                                val name = medicineOtherNameText.value.trim()
+                                val cause = medicineOtherCauseText.value.trim()
+                                if (name.isNotEmpty()) {
+                                    val causePart = if (cause.isNotEmpty()) " (Cause: $cause)" else ""
+                                    finalReasons.add("Medicine : Other: $name$causePart")
+                                } else {
+                                    finalReasons.add("Medicine : Other")
+                                }
+                            }
+                            "Insect Bite/Sting" -> {
+                                val insect = insectText.value.trim()
+                                if (insect.isNotEmpty()) {
+                                    finalReasons.add("Insect Bite/Sting: $insect")
+                                } else {
+                                    finalReasons.add("Insect Bite/Sting")
                                 }
                             }
                             else -> finalReasons.add(r)
@@ -190,7 +214,7 @@ fun StreakBreakDialog(viewModel: TrackerViewModel) {
                     viewModel.pendingStreakBreak.value = null
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = CoralPink,
+                    containerColor = Color(0xFF1A7E97),
                     contentColor = AmoledBlack
                 )
             ) {
@@ -198,13 +222,27 @@ fun StreakBreakDialog(viewModel: TrackerViewModel) {
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = {
-                    viewModel.addEntry(breakInfo.type, breakInfo.timestamp, breakInfo.metadata, force = true)
-                    viewModel.pendingStreakBreak.value = null
-                }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "Cancel", color = MutedGray)
+                TextButton(
+                    onClick = {
+                        // Cancel closes the dialog and aborts/discards the log entry
+                        viewModel.pendingStreakBreak.value = null
+                    }
+                ) {
+                    Text(text = "Cancel", color = MutedGray)
+                }
+                TextButton(
+                    onClick = {
+                        // Skip logs the entry without any streak break reasons
+                        viewModel.addEntry(breakInfo.type, breakInfo.timestamp, breakInfo.metadata, force = true)
+                        viewModel.pendingStreakBreak.value = null
+                    }
+                ) {
+                    Text(text = "Skip", color = Color(0xFF1A7E97), fontWeight = FontWeight.Bold)
+                }
             }
         }
     )
