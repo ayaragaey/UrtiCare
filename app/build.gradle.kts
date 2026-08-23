@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.urticare20"
+    namespace = "com.example.urticare"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -12,11 +12,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.urticare20"
+        applicationId = "xyz.urticare"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

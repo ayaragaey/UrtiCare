@@ -15,13 +15,18 @@ export function getTimeGap(t1: string, t2: string): string {
     const d1 = parseISO(t1);
     const d2 = parseISO(t2);
     const diffMinutes = Math.abs(differenceInMinutes(d1, d2));
-    const hrs = Math.floor(diffMinutes / 60);
-    const mins = diffMinutes % 60;
+    const days = Math.floor(diffMinutes / (24 * 60));
+    const remainingMinsAfterDays = diffMinutes % (24 * 60);
+    const hours = Math.floor(remainingMinsAfterDays / 60);
+    const mins = remainingMinsAfterDays % 60;
 
-    if (hrs > 0) {
-      return `+${hrs}h${mins > 0 ? ` ${mins}m` : ''}`;
+    if (days > 0) {
+      return hours > 0 ? `${days}d${hours}h` : `${days}d`;
+    } else if (hours > 0) {
+      return mins > 0 ? `${hours}h${mins}m` : `${hours}h`;
+    } else {
+      return `${mins}m`;
     }
-    return `+${mins}m`;
   } catch (error) {
     return '';
   }

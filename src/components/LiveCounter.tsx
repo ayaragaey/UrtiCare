@@ -2,11 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useTrackerStore } from '../store/useTrackerStore';
 import { useLiveTimer } from '../hooks/useLiveTimer';
+import { theme } from '../styles/theme';
 
 export default function LiveCounter() {
-  // Extract ONLY the latest Antihistamine entry's timestamp.
-  // This memoized selection ensures this component re-renders ONLY when the last dose timestamp actually changes,
-  // while the internal ticker operates inside the hook.
   const lastAntihistamine = useTrackerStore(state => {
     const ahList = state.entries.filter(e => e.type === 'ANTIHISTAMINE');
     return ahList.length > 0 ? ahList[0].timestamp : undefined;
@@ -18,7 +16,7 @@ export default function LiveCounter() {
     <View style={styles.card}>
       <View style={styles.pulseContainer}>
         <View style={[styles.pulseDot, lastAntihistamine ? styles.activeDot : styles.inactiveDot]} />
-        <Text style={styles.label}>LAST ANTIHISTAMINE WAS</Text>
+        <Text style={styles.label}>Last antihistamine was</Text>
       </View>
       
       <Text style={[styles.timer, lastAntihistamine ? styles.activeTimer : styles.inactiveTimer]}>
@@ -26,9 +24,11 @@ export default function LiveCounter() {
       </Text>
 
       {lastAntihistamine && (
-        <Text style={styles.indicatorText}>
-          ● Live elapsed time tracker active
-        </Text>
+        <View style={styles.statusBadge}>
+          <Text style={styles.indicatorText}>
+            ⏱ Live Tracking Active
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -36,27 +36,28 @@ export default function LiveCounter() {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(80, 151, 41, 0.12)', // Tinted green glass background
     borderWidth: 1,
-    borderColor: '#EAEAEA',
-    borderRadius: 16,
-    padding: 20,
+    borderColor: 'rgba(255, 255, 255, 0.8)', // Translucent border
+    borderRadius: 20, // 20px radius
+    padding: 24,
     marginHorizontal: 16,
-    marginVertical: 12,
+    marginVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
+        shadowColor: '#323246',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.04,
+        shadowRadius: 10,
       },
       android: {
-        elevation: 4,
+        elevation: 0,
       },
       web: {
-        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)',
+        backdropFilter: 'blur(18px)',
+        boxShadow: '0 6px 15px rgba(50, 50, 70, 0.04)',
       }
     }),
   },
@@ -72,35 +73,40 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   activeDot: {
-    backgroundColor: '#1b8097',
+    backgroundColor: theme.colors.successGreen, // Green status dot
   },
   inactiveDot: {
-    backgroundColor: '#CCCCCC',
+    backgroundColor: theme.colors.neutralGrey,
   },
   label: {
-    color: '#666666',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
+    color: theme.colors.neutralGrey,
+    fontSize: theme.typography.size.small,
+    fontWeight: theme.typography.weight.semibold,
   },
   timer: {
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 38, // Dominant visual element
+    fontWeight: theme.typography.weight.bold,
     textAlign: 'center',
     marginVertical: 4,
     letterSpacing: -0.5,
   },
   activeTimer: {
-    color: '#1b8097', // Premium dark contrast teal
+    color: theme.colors.successGreen, // Green timer digits
   },
   inactiveTimer: {
-    color: '#888888',
+    color: theme.colors.neutralGrey,
+  },
+  statusBadge: {
+    backgroundColor: 'rgba(80, 151, 41, 0.12)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: theme.borderRadius.full,
+    marginTop: 6,
   },
   indicatorText: {
-    color: '#888888',
+    color: theme.colors.successGreen,
     fontSize: 10,
-    fontWeight: '600',
-    marginTop: 6,
+    fontWeight: theme.typography.weight.bold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   }

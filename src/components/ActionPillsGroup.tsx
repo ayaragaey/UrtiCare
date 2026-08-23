@@ -1,107 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { useTrackerStore } from '../store/useTrackerStore';
-
-interface GlossyPillProps {
-  type: 'FLARE_UP' | 'ANTIHISTAMINE' | 'CORTISONE';
-  label: string;
-  subtext?: string;
-  size: number;
-  onPress: () => void;
-}
-
-function GlossyActionPill({ type, label, subtext, size, onPress }: GlossyPillProps) {
-  // Gel/glossy base colors
-  const baseColor = 
-    type === 'FLARE_UP' ? '#814b92' : 
-    type === 'ANTIHISTAMINE' ? '#509729' : 
-    '#1b8097';
-
-  // Increased ring size factor from 0.76 to 0.85 to provide more space for text
-  const ringSize = size * 0.85;
-
-  return (
-    <TouchableOpacity 
-      style={[
-        styles.pillContainer, 
-        { 
-          width: size, 
-          height: size, 
-          borderRadius: size / 2, 
-          backgroundColor: baseColor 
-        },
-        type === 'ANTIHISTAMINE' && styles.focalPillContainer
-      ]} 
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
-      {/* Outer 3D Bevel Highlights (lighter top border, darker bottom border) */}
-      <View 
-        style={[
-          styles.bevelHighlight, 
-          { 
-            width: size, 
-            height: size, 
-            borderRadius: size / 2 
-          }
-        ]} 
-      />
-      
-      {/* Inner Ring Drop Shadow for 3D depth */}
-      <View 
-        style={[
-          styles.ringShadow, 
-          { 
-            width: ringSize, 
-            height: ringSize, 
-            borderRadius: ringSize / 2,
-            top: (size - ringSize) / 2 + 1.2,
-            left: (size - ringSize) / 2 + 0.6,
-          }
-        ]} 
-      />
-      
-      {/* Inner White Ring containing the labels */}
-      <View 
-        style={[
-          styles.whiteRing, 
-          { 
-            width: ringSize, 
-            height: ringSize, 
-            borderRadius: ringSize / 2,
-            top: (size - ringSize) / 2,
-            left: (size - ringSize) / 2,
-          }
-        ]}
-      >
-        <View style={styles.textContainer}>
-          <Text 
-            style={[
-              styles.pillText, 
-              type === 'ANTIHISTAMINE' && styles.focalText,
-              type === 'CORTISONE' && styles.cortisoneText
-            ]}
-            numberOfLines={type === 'CORTISONE' ? 2 : 1}
-            adjustsFontSizeToFit={true}
-            minimumFontScale={0.7}
-          >
-            {label}
-          </Text>
-          {subtext && (
-            <Text 
-              style={styles.pillSubtext}
-              numberOfLines={1}
-              adjustsFontSizeToFit={true}
-              minimumFontScale={0.75}
-            >
-              {subtext}
-            </Text>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-}
 
 export default function ActionPillsGroup() {
   const addEntry = useTrackerStore(state => state.addEntry);
@@ -122,141 +21,156 @@ export default function ActionPillsGroup() {
 
   return (
     <View style={styles.container}>
-      {/* Flare Up Button */}
-      <GlossyActionPill 
-        type="FLARE_UP"
-        label="Flare Up"
-        size={basePillSize}
+      {/* 1. Flare Up Button - #FCB9A4 */}
+      <TouchableOpacity 
+        style={[styles.octagonOuter, styles.flareUpOuter, { width: 86, height: 86 }]} 
         onPress={() => handleAction('FLARE_UP')}
-      />
+        activeOpacity={0.8}
+      >
+        <View style={[styles.octagonInner, styles.flareUpInner]}>
+          <View style={styles.iconContainer}>
+            <Text style={styles.flareIcon}>🔥</Text>
+          </View>
+          <Text style={[styles.btnLabel, { color: '#5A1212' }]}>Flare Up</Text>
+        </View>
+      </TouchableOpacity>
 
-      {/* Antihistamine Taken Button (Focal Element - scaled by exactly 15%) */}
-      <GlossyActionPill 
-        type="ANTIHISTAMINE"
-        label="Antihistamine"
-        subtext="Taken"
-        size={basePillSize * 1.15}
+      {/* 2. Antihistamine Button - #509729 */}
+      <TouchableOpacity 
+        style={[styles.octagonOuter, styles.antihistamineOuter, { width: 90, height: 90 }]} 
         onPress={() => handleAction('ANTIHISTAMINE')}
-      />
+        activeOpacity={0.8}
+      >
+        <View style={[styles.octagonInner, styles.antihistamineInner]}>
+          <View style={styles.iconContainer}>
+            <View style={[styles.capsuleIcon, { borderColor: '#509729' }]}>
+              <View style={[styles.capsuleLine, { backgroundColor: '#509729' }]} />
+            </View>
+          </View>
+          <Text style={[styles.btnLabel, { color: '#0F3E14' }]}>Antihestamine</Text>
+        </View>
+      </TouchableOpacity>
 
-      {/* Cortisone/Steroid Button */}
-      <GlossyActionPill 
-        type="CORTISONE"
-        label={"Cortico-\nsteroids"}
-        size={basePillSize}
+      {/* 3. Corticosteroids Button - #1a7e97 */}
+      <TouchableOpacity 
+        style={[styles.octagonOuter, styles.corticosteroidsOuter, { width: 86, height: 86 }]} 
         onPress={() => handleAction('CORTISONE')}
-      />
+        activeOpacity={0.8}
+      >
+        <View style={[styles.octagonInner, styles.corticosteroidsInner]}>
+          <View style={styles.iconContainer}>
+            <View style={[styles.tabletIcon, { borderColor: '#1a7e97' }]}>
+              <View style={[styles.tabletLine, { backgroundColor: '#1a7e97' }]} />
+            </View>
+          </View>
+          <Text style={[styles.btnLabel, { color: '#0D3B66' }]}>Corticosteroids</Text>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 }
 
-const screenWidth = Dimensions.get('window').width;
-const basePillSize = Math.min(96, screenWidth * 0.24);
+const octClip = 'polygon(28% 0%, 72% 0%, 100% 28%, 100% 72%, 72% 100%, 28% 100%, 0% 72%, 0% 28%)';
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'space-evenly',
     paddingHorizontal: 16,
-    marginVertical: 24,
+    marginVertical: 18,
     width: '100%',
   },
-  pillContainer: {
+  octagonOuter: {
+    padding: 3.5,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
-    position: 'relative',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-      },
-      android: {
-        elevation: 6,
-      },
-      web: {
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-      }
-    }),
-  },
-  focalPillContainer: {
-    zIndex: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#1b8097',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-      web: {
-        boxShadow: '0 6px 20px rgba(80, 151, 41, 0.35)',
-      }
-    }),
-  },
-  bevelHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderWidth: 1.5,
-    borderTopColor: 'rgba(255, 255, 255, 0.4)',
-    borderLeftColor: 'rgba(255, 255, 255, 0.4)',
-    borderBottomColor: 'rgba(0, 0, 0, 0.35)',
-    borderRightColor: 'rgba(0, 0, 0, 0.35)',
-    zIndex: 2,
-  },
-  ringShadow: {
-    position: 'absolute',
     borderWidth: 2,
-    borderColor: 'rgba(0, 0, 0, 0.15)',
-    zIndex: 1,
+    borderRadius: 20,
+    ...Platform.select({
+      web: {
+        clipPath: octClip,
+        WebkitClipPath: octClip,
+      } as any
+    })
   },
-  whiteRing: {
-    position: 'absolute',
-    borderWidth: 2.2,
-    borderColor: '#FFFFFF',
+  octagonInner: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 2,
-    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 3,
+    ...Platform.select({
+      web: {
+        clipPath: octClip,
+        WebkitClipPath: octClip,
+      } as any
+    })
   },
-  textContainer: {
+  flareUpOuter: {
+    borderColor: '#FC9AA3',
+    backgroundColor: 'rgba(252, 154, 163, 0.15)',
+  },
+  flareUpInner: {
+    borderColor: 'rgba(252, 154, 163, 0.45)',
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  antihistamineOuter: {
+    borderColor: '#509729',
+    backgroundColor: 'rgba(80, 151, 41, 0.15)',
+  },
+  antihistamineInner: {
+    borderColor: 'rgba(80, 151, 41, 0.45)',
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  corticosteroidsOuter: {
+    borderColor: '#1a7e97',
+    backgroundColor: 'rgba(26, 126, 151, 0.15)',
+  },
+  corticosteroidsInner: {
+    borderColor: 'rgba(26, 126, 151, 0.45)',
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  iconContainer: {
+    height: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 2,
+    marginBottom: 2,
   },
-  pillText: {
-    color: '#FFFFFF',
-    fontSize: 10.5,
-    fontWeight: '900',
-    textAlign: 'center',
-    letterSpacing: -0.2,
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
+  flareIcon: {
+    fontSize: 16,
   },
-  focalText: {
-    fontSize: 10.5,
+  capsuleIcon: {
+    width: 12,
+    height: 18,
+    borderRadius: 6,
+    borderWidth: 1.6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ rotate: '-45deg' }],
   },
-  cortisoneText: {
+  capsuleLine: {
+    width: '100%',
+    height: 1.6,
+  },
+  tabletIcon: {
+    width: 18,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1.6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabletLine: {
+    width: '100%',
+    height: 1.6,
+  },
+  btnLabel: {
     fontSize: 8.5,
+    fontWeight: '700',
+    textAlign: 'center',
     lineHeight: 10,
   },
-  pillSubtext: {
-    color: '#FFFFFF',
-    fontSize: 7.5,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginTop: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
-  }
 });

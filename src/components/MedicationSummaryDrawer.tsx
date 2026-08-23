@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useTrackerStore } from '../store/useTrackerStore';
 import { getMovingWindowCount, getMonthCounts, MONTH_NAMES } from '../utils/dateHelpers';
+import { theme } from '../styles/theme';
+import { IconChevronDown } from './common/CustomIcons';
 
 export default function MedicationSummaryDrawer() {
   const entries = useTrackerStore(state => state.entries);
-  const [isOpen, setIsOpen] = useState(true); // default open for gorgeous landing view
-  
-  // States for calendar month navigation
+  const [isOpen, setIsOpen] = useState(true);
   const [navDate, setNavDate] = useState(() => new Date());
 
   const handlePrevMonth = () => {
@@ -26,20 +26,15 @@ export default function MedicationSummaryDrawer() {
     });
   };
 
-  // Perform memoized lookbacks based on current date
   const metrics = useMemo(() => {
     const now = new Date();
     return {
       ah24: getMovingWindowCount(entries, 'ANTIHISTAMINE', 24, now),
       ah48: getMovingWindowCount(entries, 'ANTIHISTAMINE', 48, now),
       ah72: getMovingWindowCount(entries, 'ANTIHISTAMINE', 72, now),
-      
-      flare24: getMovingWindowCount(entries, 'FLARE_UP', 24, now),
-      cortisone24: getMovingWindowCount(entries, 'CORTISONE', 24, now),
     };
   }, [entries]);
 
-  // Calculate monthly stats based on navigated month
   const targetYear = navDate.getFullYear();
   const targetMonth = navDate.getMonth();
   const monthName = MONTH_NAMES[targetMonth];
@@ -48,26 +43,22 @@ export default function MedicationSummaryDrawer() {
   const monthlyCortisone = useMemo(() => getMonthCounts(entries, 'CORTISONE', targetYear, targetMonth), [entries, targetYear, targetMonth]);
   const monthlyFlare = useMemo(() => getMonthCounts(entries, 'FLARE_UP', targetYear, targetMonth), [entries, targetYear, targetMonth]);
 
-  const toggleOpen = () => {
-    setIsOpen(!isOpen);
-  };
-
   return (
     <View style={styles.container}>
-      {/* Collapse Action Toggle Header */}
-      <TouchableOpacity onPress={toggleOpen} activeOpacity={0.8} style={styles.header}>
+      {/* Drawer Toggle Header */}
+      <TouchableOpacity onPress={() => setIsOpen(!isOpen)} activeOpacity={0.8} style={styles.header}>
         <View style={styles.headerTitleRow}>
-          <Text style={styles.icon}>📊</Text>
-          <Text style={styles.headerTitle}>Medication Summary & Insights</Text>
+          <Text style={styles.headerTitle}>Medication Summary</Text>
         </View>
-        <Text style={styles.arrow}>{isOpen ? '▲' : '▼'}</Text>
+        <View style={[styles.arrowContainer, isOpen && styles.arrowOpen]}>
+          <IconChevronDown color={theme.colors.neutralGrey} size={14} />
+        </View>
       </TouchableOpacity>
 
-      {/* Expanded Accordion Body */}
+      {/* Accordion Body */}
       {isOpen && (
         <View style={styles.body}>
-          
-          {/* Time-box Lookback Aggregation Matrix */}
+          {/* Moving Lookbacks - Styled in Teal */}
           <Text style={styles.sectionTitle}>MOVING LOOKBACK WINDOWS (ANTIHISTAMINE)</Text>
           <View style={styles.matrixRow}>
             <View style={styles.matrixCard}>
@@ -91,7 +82,7 @@ export default function MedicationSummaryDrawer() {
 
           <View style={styles.divider} />
 
-          {/* Rolling Calendar Monthly Summary Overview */}
+          {/* Calendar navigation */}
           <View style={styles.calendarHeader}>
             <Text style={styles.sectionTitle}>MONTHLY CALENDAR OVERVIEW</Text>
             <View style={styles.navControls}>
@@ -107,11 +98,12 @@ export default function MedicationSummaryDrawer() {
             </View>
           </View>
 
+          {/* List display */}
           <View style={styles.monthlyList}>
-            {/* Antihistamine Total */}
+            {/* Antihistamine */}
             <View style={styles.monthlyRow}>
               <View style={styles.monthlyRowLeft}>
-                <View style={[styles.bulletDot, { backgroundColor: '#509729' }]} />
+                <View style={[styles.bulletDot, { backgroundColor: theme.colors.secondaryTeal }]} />
                 <Text style={styles.monthlyRowLabel}>Antihistamines Taken</Text>
               </View>
               <Text style={styles.monthlyRowValue}>
@@ -119,10 +111,10 @@ export default function MedicationSummaryDrawer() {
               </Text>
             </View>
 
-            {/* Cortisone/Steroid Total */}
+            {/* Cortisone */}
             <View style={styles.monthlyRow}>
               <View style={styles.monthlyRowLeft}>
-                <View style={[styles.bulletDot, { backgroundColor: '#1b8097' }]} />
+                <View style={[styles.bulletDot, { backgroundColor: theme.colors.successGreen }]} />
                 <Text style={styles.monthlyRowLabel}>Cortisone Dosages</Text>
               </View>
               <Text style={styles.monthlyRowValue}>
@@ -130,10 +122,10 @@ export default function MedicationSummaryDrawer() {
               </Text>
             </View>
 
-            {/* Symptom Flare Up Total */}
+            {/* Flare Up */}
             <View style={styles.monthlyRow}>
               <View style={styles.monthlyRowLeft}>
-                <View style={[styles.bulletDot, { backgroundColor: '#814b92' }]} />
+                <View style={[styles.bulletDot, { backgroundColor: theme.colors.primaryPurple }]} />
                 <Text style={styles.monthlyRowLabel}>Symptom Flare-ups</Text>
               </View>
               <Text style={styles.monthlyRowValue}>
@@ -141,7 +133,6 @@ export default function MedicationSummaryDrawer() {
               </Text>
             </View>
           </View>
-
         </View>
       )}
     </View>
@@ -150,25 +141,26 @@ export default function MedicationSummaryDrawer() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.glassBg,
     borderWidth: 1,
-    borderColor: '#EAEAEA',
-    borderRadius: 16,
+    borderColor: theme.colors.glassBorder,
+    borderRadius: 20, // 20px radius
     marginHorizontal: 16,
     marginVertical: 12,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: '#323246',
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.04,
         shadowRadius: 10,
       },
       android: {
-        elevation: 6,
+        elevation: 0,
       },
       web: {
-        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.05)',
+        backdropFilter: 'blur(18px)',
+        boxShadow: '0 6px 20px rgba(50, 50, 70, 0.04)',
       }
     }),
   },
@@ -178,36 +170,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
     paddingHorizontal: 18,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'transparent',
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: theme.colors.glassBorder,
   },
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  icon: {
-    marginRight: 10,
-    fontSize: 16,
-  },
   headerTitle: {
-    color: '#111111',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    color: '#814B92',
+    fontSize: theme.typography.size.regular,
+    fontWeight: theme.typography.weight.bold,
+    ...Platform.select({
+      web: {
+        background: 'linear-gradient(90deg, #814B92 0%, #509729 50%, #1A7E97 100%)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+      } as any
+    })
   },
-  arrow: {
-    color: '#888888',
-    fontSize: 10,
+  arrowContainer: {
+    transform: [{ rotate: '0deg' }],
+  },
+  arrowOpen: {
+    transform: [{ rotate: '180deg' }],
   },
   body: {
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   sectionTitle: {
-    color: '#737373',
-    fontSize: 10,
-    fontWeight: '800',
+    color: theme.colors.neutralGrey,
+    fontSize: theme.typography.size.xsmall,
+    fontWeight: theme.typography.weight.bold,
     letterSpacing: 1,
     marginBottom: 10,
   },
@@ -218,36 +214,36 @@ const styles = StyleSheet.create({
   },
   matrixCard: {
     flex: 1,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#EEEEEE',
-    borderRadius: 10,
+    borderColor: '#737373',
+    borderRadius: theme.borderRadius.medium,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   matrixLabel: {
-    color: '#666666',
+    color: '#737373',
     fontSize: 9,
-    fontWeight: '700',
+    fontWeight: theme.typography.weight.bold,
     marginBottom: 4,
     letterSpacing: 0.5,
   },
   matrixVal: {
-    color: '#1b8097', // Premium dark contrast teal
-    fontSize: 22,
-    fontWeight: '800',
+    color: '#737373',
+    fontSize: theme.typography.size.xlarge,
+    fontWeight: theme.typography.weight.heavy,
   },
   matrixSub: {
-    color: '#666666',
+    color: '#737373',
     fontSize: 9,
-    fontWeight: '600',
+    fontWeight: theme.typography.weight.bold,
     marginTop: 2,
     textTransform: 'uppercase',
   },
   divider: {
     height: 1,
-    backgroundColor: '#EEEEEE',
+    backgroundColor: theme.colors.glassBorder,
     marginVertical: 16,
   },
   calendarHeader: {
@@ -257,35 +253,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F9F9F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     borderWidth: 1,
-    borderColor: '#EAEAEA',
-    borderRadius: 8,
+    borderColor: theme.colors.glassBorder,
+    borderRadius: theme.borderRadius.small,
     padding: 4,
     marginTop: 4,
   },
   navBtn: {
-    padding: 8,
-    borderRadius: 6,
-    backgroundColor: '#EAEAEA',
-    minWidth: 32,
+    paddingHorizontal: 8,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   navBtnText: {
-    color: '#555555',
-    fontSize: 10,
-    fontWeight: '800',
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   monthDisplay: {
-    color: '#111111',
-    fontSize: 12,
-    fontWeight: '700',
+    color: theme.colors.textDark,
+    fontSize: theme.typography.size.small,
+    fontWeight: theme.typography.weight.bold,
   },
   monthlyList: {
-    backgroundColor: '#F9F9F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     borderWidth: 1,
-    borderColor: '#EAEAEA',
-    borderRadius: 10,
+    borderColor: theme.colors.glassBorder,
+    borderRadius: theme.borderRadius.medium,
     paddingHorizontal: 12,
     paddingVertical: 4,
   },
@@ -295,7 +289,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: theme.colors.glassBorder,
   },
   monthlyRowLeft: {
     flexDirection: 'row',
@@ -308,13 +302,13 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   monthlyRowLabel: {
-    color: '#333333',
-    fontSize: 12,
-    fontWeight: '600',
+    color: theme.colors.textDark,
+    fontSize: theme.typography.size.small,
+    fontWeight: theme.typography.weight.semibold,
   },
   monthlyRowValue: {
-    color: '#111111',
-    fontSize: 12,
-    fontWeight: '700',
+    color: theme.colors.textDark,
+    fontSize: theme.typography.size.small,
+    fontWeight: theme.typography.weight.bold,
   }
 });
